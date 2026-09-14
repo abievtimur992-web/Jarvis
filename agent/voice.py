@@ -155,13 +155,17 @@ def repair_transcript(raw_text: str, vocabulary, call_model_fn) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def speak(text: str, voice_id: str, bridge: bool = True, language_code: str = "kaz") -> bytes:
+def speak(text: str, voice_id: str, bridge: bool = True, language_code: str | None = None) -> bytes:
     """
     Tekstti dawısqa aylandıradı, mp3 baytların qaytaradı.
 
     bridge=True (standart) — kaa.to_kazakh_cyrillic() arqalı qazaq dıbısına
     jaqınlastıradı. bridge=False — sanaqlaw (A/B) ushın, sózlerdi
     ózgertpey jiberedi (?bridge=0 debug tumbler UI-de).
+
+    language_code=None (standart) — TTS_MODEL_ID (eleven_v3) "kaz" kodın
+    qabıl etpeydi (validation_error), sonıń ushın tildi kórsetpeymiz, model
+    Kirill jazıwınan (bridge nátiyjesi) ózi jaqınlastıradı.
     """
     if not voice_id:
         raise VoiceError("ELEVEN_VOICE_ID .env faylında joq — list_voices.py penen tańla")
@@ -169,9 +173,10 @@ def speak(text: str, voice_id: str, bridge: bool = True, language_code: str = "k
     speakable = kaa.to_speakable(text)
     payload_text = kaa.to_kazakh_cyrillic(speakable) if bridge else speakable
 
-    body = json.dumps(
-        {"text": payload_text, "model_id": TTS_MODEL_ID, "language_code": language_code}
-    ).encode("utf-8")
+    payload = {"text": payload_text, "model_id": TTS_MODEL_ID}
+    if language_code:
+        payload["language_code"] = language_code
+    body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         f"{ELEVENLABS_API_BASE}/text-to-speech/{voice_id}",
         data=body,
