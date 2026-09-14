@@ -75,7 +75,9 @@
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        console.warn("Dawıs joq:", body.error || res.status);
+        const reason = body.error || ("HTTP " + res.status);
+        console.warn("Dawıs joq:", reason);
+        if (window.JarvisShowAnswer) window.JarvisShowAnswer("DAWIS JOQ", "Sóylew islemedi.", reason);
         setReactor(null, "Tayar");
         return;
       }
@@ -87,9 +89,15 @@
         if (state.currentAudio === audio) state.currentAudio = null;
         setReactor(null, "Tayar");
       });
-      audio.play().catch(() => setReactor(null, "Tayar"));
+      audio.play().catch((e) => {
+        console.error("audio.play qátesi:", e);
+        if (window.JarvisShowAnswer)
+          window.JarvisShowAnswer("DAWIS JOQ", "Brauzer dawıstı oynatpadı.", String((e && e.message) || e));
+        setReactor(null, "Tayar");
+      });
     } catch (e) {
       console.error("speak qátesi:", e);
+      if (window.JarvisShowAnswer) window.JarvisShowAnswer("DAWIS JOQ", "Sóylew islemedi.", String((e && e.message) || e));
       setReactor(null, "Tayar");
     }
   }
