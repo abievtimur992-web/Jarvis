@@ -12,9 +12,10 @@
 (function () {
   "use strict";
 
-  const SILENCE_MS = 900; // usınsha úndemewden keyin gezek juwmaqlanadı
+  const SILENCE_MS = 900; // sóylep bolǵannan keyingi usınsha úndemewden soń gezek juwmaqlanadı
   const SILENCE_THRESHOLD = 0.02; // dawıs deńgeyi bunnan tómen — "úndemew"
   const LEVEL_POLL_MS = 80; // audio-deńgey tekseriw aralıǵı
+  const SPEECH_TIMEOUT_MS = 12000; // sóylew basланбаса, mikrofon usınsha waqıttan keyin ózi jabıladı
 
   const state = {
     mic: null,
@@ -27,6 +28,8 @@
     muted: false,
     currentAudio: null,
     chunks: [],
+    hasSpoken: false,
+    listenStartedAt: null,
   };
 
   function setReactor(mode, label) {
@@ -176,6 +179,8 @@
 
     const dataArray = new Uint8Array(state.analyser.frequencyBinCount);
     state.silenceStartedAt = null;
+    state.hasSpoken = false;
+    state.listenStartedAt = performance.now();
 
     let mimeType = "audio/webm";
     if (window.MediaRecorder && MediaRecorder.isTypeSupported && !MediaRecorder.isTypeSupported(mimeType)) {
@@ -209,13 +214,21 @@
       }
       const level = Math.sqrt(sumSquares / dataArray.length);
       const now = performance.now();
-      if (level < SILENCE_THRESHOLD) {
-        if (state.silenceStartedAt === null) state.silenceStartedAt = now;
-        if (now - state.silenceStartedAt > SILENCE_MS) {
-          stopMic();
-        }
-      } else {
+      if (level >= SILENCE_THRESHOLD) {
+        state.hasSpoken = true;
         state.silenceStartedAt = null;
+        return;
+      }
+      // Sóylew ele baslanbaǵan bolsa — húrmet waqtın sanamaymız, tek ulıwma
+      // waqıt sheginen (SPEECH_TIMEOUT_MS) asqanda mikrofondı jabamız, bolmasa
+      // oylanıp turǵan iyeni mikrofon "esitpey" toqtatıp qoyar edi.
+      if (!state.hasSpoken) {
+        if (now - state.listenStartedAt > SPEECH_TIMEOUT_MS) stopMic();
+        return;
+      }
+      if (state.silenceStartedAt === null) state.silenceStartedAt = now;
+      if (now - state.silenceStartedAt > SILENCE_MS) {
+        stopMic();
       }
     }, LEVEL_POLL_MS);
   }

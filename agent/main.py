@@ -292,7 +292,13 @@ class JarvisHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _send_file(self, path: Path) -> None:
+    def _send_file(self, path: Path, base_dir: Path | None = None) -> None:
+        if base_dir is not None:
+            try:
+                path.resolve().relative_to(base_dir.resolve())
+            except ValueError:
+                self._send_json({"error": "tabılmadı"}, status=404)
+                return
         if not path.exists() or not path.is_file():
             self._send_json({"error": "tabılmadı"}, status=404)
             return
@@ -363,7 +369,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
             except voice_mod.VoiceError as e:
                 self._send_json({"error": str(e)}, status=503)
         elif route == "/fonts" or route.startswith("/fonts/") or route in STATIC_FILES:
-            self._send_file(UI_DIR / route.lstrip("/"))
+            self._send_file(UI_DIR / route.lstrip("/"), base_dir=UI_DIR)
         else:
             self._send_json({"error": "tabılmadı"}, status=404)
 
