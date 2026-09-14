@@ -153,6 +153,25 @@ def _trim_history() -> None:
         del _CONVERSATION[: len(_CONVERSATION) - max_messages]
 
 
+_TOOLS_WITH_CACHE = None
+
+
+def _tools_for_api() -> list:
+    """TOOL_DEFINITIONS, aqırǵı tool-ge cache_control belgisi qosılğan halda.
+
+    system_promptты da, tool sıpatlamaларын да hár shaqırыуda qайта-qайта
+    tolıq islewdiń ornına, Anthropic bul eki blоktı (tools + system)
+    keshi (cache) etip saqlaydı — bul, ásirese bir gezek ishinde tool
+    kerek болғанда болатuğын eкinshi shaqырыуды tezлетеди."""
+    global _TOOLS_WITH_CACHE
+    if _TOOLS_WITH_CACHE is None:
+        tools = [dict(t) for t in tools_mod.TOOL_DEFINITIONS]
+        if tools:
+            tools[-1] = {**tools[-1], "cache_control": {"type": "ephemeral"}}
+        _TOOLS_WITH_CACHE = tools
+    return _TOOLS_WITH_CACHE
+
+
 def call_anthropic(messages: list, system_prompt: str) -> dict:
     if not ANTHROPIC_API_KEY:
         raise RuntimeError("ANTHROPIC_API_KEY joq")
@@ -160,9 +179,9 @@ def call_anthropic(messages: list, system_prompt: str) -> dict:
         {
             "model": MODEL,
             "max_tokens": 1024,
-            "system": system_prompt,
+            "system": [{"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}],
             "messages": messages,
-            "tools": tools_mod.TOOL_DEFINITIONS,
+            "tools": _tools_for_api(),
         }
     ).encode("utf-8")
     req = urllib.request.Request(
