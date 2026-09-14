@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="kaa">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jarvis</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <canvas id="graph-canvas"></canvas>
+
+  <!-- Left: inspector -->
+  <div id="inspector" class="panel">
+    <h2>Bettiń maǵlıwmatı</h2>
+    <div id="inspector-empty">Grafiktegi bir dógerekke bas — sonıń jazbasın kóreseń.</div>
+    <div id="inspector-note">
+      <h3 id="note-title"></h3>
+      <div class="meta" id="note-meta"></div>
+      <div class="body" id="note-body"></div>
+    </div>
+    <div id="hubs-list">
+      <h3>Eń kóp baylanısqan</h3>
+      <div id="hubs-items"></div>
+    </div>
+  </div>
+
+  <!-- Right: filters + reactor -->
+  <div id="filters" class="panel">
+    <h3>Súzgi</h3>
+    <div id="filter-items"></div>
+    <div id="reactor">
+      <div id="reactor-ring"><div id="reactor-dot"></div></div>
+      <div id="reactor-label">Tayar</div>
+      <div id="status-badge"></div>
+    </div>
+  </div>
+
+  <!-- Caption (voice) -->
+  <div id="caption" class="panel">
+    <div class="raw" id="caption-raw"></div>
+    <div class="repaired" id="caption-repaired"></div>
+  </div>
+
+  <!-- Answer card -->
+  <div id="answer-card" class="panel">
+    <div class="card-badge" id="answer-badge"></div>
+    <div class="spoken" id="answer-spoken"></div>
+    <div class="card-body" id="answer-body"></div>
+  </div>
+
+  <!-- Bottom: ask bar -->
+  <div id="ask-bar" class="panel">
+    <div id="ask-example"></div>
+    <div id="ask-row">
+      <input id="ask-input" type="text" placeholder="Jarvis-tan bir nárse sora..." autocomplete="off" />
+      <button class="btn primary" id="btn-send">Jiber</button>
+    </div>
+    <div id="ask-buttons">
+      <button class="btn accent" id="btn-mic">🎙️ Mikrofon</button>
+      <button class="btn" id="btn-mute">🔇 Dawıssız</button>
+      <button class="btn" id="btn-brief">📋 Qısqasha</button>
+      <button class="btn" id="btn-plan">📅 Kún jobası</button>
+      <button class="btn" id="btn-remember">💾 Yad</button>
+    </div>
+  </div>
+
+  <script src="graph.js"></script>
+  <script src="chat.js"></script>
+  <script src="voice.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

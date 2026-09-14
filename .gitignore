@@ -1,0 +1,23 @@
+# Sırlar — hesh qashan GitHub-qa jibermeymiz
+.env
+
+# Timurdıń jeke maǵlıwmatı
+profile/
+memory/
+biznes/
+data/real/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS-tiń óz fayllary
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Redaktor fayllary
+.vscode/
+.idea/
