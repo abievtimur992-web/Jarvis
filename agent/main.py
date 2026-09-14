@@ -16,6 +16,7 @@ import json
 import mimetypes
 import os
 import sys
+import time
 import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -190,9 +191,12 @@ def run_conversation_turn(user_text: str) -> dict:
     system_prompt = _load_system_prompt()
     last_card = None
     tool_log: list = []
+    turn_started = time.perf_counter()
 
-    for _ in range(MAX_TOOL_ITERATIONS):
+    for step in range(MAX_TOOL_ITERATIONS):
+        t0 = time.perf_counter()
         response = call_anthropic(list(_CONVERSATION), system_prompt)
+        print(f"[waqit] model shaqırıw #{step + 1}: {time.perf_counter() - t0:.2f}s")
         content_blocks = response.get("content", [])
         _CONVERSATION.append({"role": "assistant", "content": content_blocks})
 
@@ -201,13 +205,16 @@ def run_conversation_turn(user_text: str) -> dict:
             text_parts = [b.get("text", "") for b in content_blocks if b.get("type") == "text"]
             final_text = "\n".join(t for t in text_parts if t).strip()
             _trim_history()
+            print(f"[waqit] gezek jámi: {time.perf_counter() - turn_started:.2f}s")
             return {"reply": final_text, "card": last_card, "tool_log": tool_log}
 
         tool_result_blocks = []
         for tu in tool_uses:
             name = tu.get("name")
             tool_input = tu.get("input", {}) or {}
+            t_tool = time.perf_counter()
             result = tools_mod.run_tool(name, tool_input, ctx)
+            print(f"[waqit] tool {name}: {time.perf_counter() - t_tool:.2f}s")
             last_card = result.get("card")
             tool_log.append({"name": name, "input": tool_input})
             tool_result_blocks.append(
@@ -220,6 +227,7 @@ def run_conversation_turn(user_text: str) -> dict:
         _CONVERSATION.append({"role": "user", "content": tool_result_blocks})
 
     _trim_history()
+    print(f"[waqit] gezek jámi (shek asıldı): {time.perf_counter() - turn_started:.2f}s")
     return {
         "reply": "Bul soraw ushın júdá kóp qádem kerek boldı — qısqartıp qayta sora.",
         "card": last_card,
