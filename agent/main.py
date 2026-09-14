@@ -47,6 +47,7 @@ import voice as voice_mod  # noqa: E402
 # ---------------------------------------------------------------------------
 
 MODEL = "claude-sonnet-5"  # Anthropic model id — birdiń-aq jerde ózgertiledi
+FAST_MODEL = "claude-haiku-4-5-20251001"  # dawıs transkriptin durıslaw sıyaqlı jeńil, tez juwap kerek jumıslar ushın
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("JARVIS_PORT", "8765"))
 STT_LANG = os.environ.get("STT_LANG", "kaz")
@@ -231,7 +232,7 @@ def call_model_simple(instruction: str) -> str:
     if not ANTHROPIC_API_KEY:
         raise RuntimeError("ANTHROPIC_API_KEY joq")
     body = json.dumps(
-        {"model": MODEL, "max_tokens": 400, "messages": [{"role": "user", "content": instruction}]}
+        {"model": FAST_MODEL, "max_tokens": 400, "messages": [{"role": "user", "content": instruction}]}
     ).encode("utf-8")
     req = urllib.request.Request(
         ANTHROPIC_API_URL,
