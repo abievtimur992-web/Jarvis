@@ -125,6 +125,26 @@ def build_graph_json(v: vault_mod.Vault) -> dict:
 
 _CONVERSATION: list = []  # [{"role": "user"/"assistant", "content": ...}, ...]
 
+NETWORK_RETRIES = 3  # WinError 10054 sıyaqlı ótkinshi tarmaq úzilisleri ushın
+
+
+def _urlopen_retrying(req: urllib.request.Request, timeout: float):
+    """urlopen, biraq ótkinshi tarmaq qátesinde (URLError) 2 ret qайта sınайды.
+
+    HTTPError (server 4xx/5xx penen juwap berdi) qайта sınalmaydı — bul
+    haqıyqıy API qátesi, qайта jiberiw jәрдem бермейди."""
+    last_err: urllib.error.URLError | None = None
+    for attempt in range(NETWORK_RETRIES):
+        try:
+            return urllib.request.urlopen(req, timeout=timeout)
+        except urllib.error.HTTPError:
+            raise
+        except urllib.error.URLError as e:
+            last_err = e
+            if attempt < NETWORK_RETRIES - 1:
+                time.sleep(0.8 * (attempt + 1))
+    raise last_err
+
 
 def _load_system_prompt() -> str:
     parts = []
@@ -194,7 +214,7 @@ def call_anthropic(messages: list, system_prompt: str) -> dict:
             "content-type": "application/json",
         },
     )
-    with urllib.request.urlopen(req, timeout=45) as resp:
+    with _urlopen_retrying(req, timeout=45) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
 
@@ -271,7 +291,7 @@ def call_model_simple(instruction: str) -> str:
             "content-type": "application/json",
         },
     )
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    with _urlopen_retrying(req, timeout=30) as resp:
         data = json.loads(resp.read().decode("utf-8"))
     parts = [b.get("text", "") for b in data.get("content", []) if b.get("type") == "text"]
     return "\n".join(t for t in parts if t).strip()

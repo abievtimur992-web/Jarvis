@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 import uuid
@@ -29,10 +30,28 @@ import kaa
 ELEVENLABS_API_BASE = "https://api.elevenlabs.io/v1"
 STT_MODEL_ID = "scribe_v2"
 TTS_MODEL_ID = "eleven_v3"
+NETWORK_RETRIES = 3  # WinError 10054 sıyaqlı ótkinshi tarmaq úzilisleri ushın
 
 
 class VoiceError(Exception):
     """Dawıs xızmetinde qátelik (kilit joq, tarmaq joq, API qátesi h.t.b.)."""
+
+
+def _urlopen_retrying(req: urllib.request.Request, timeout: float):
+    """urlopen, biraq ótkinshi tarmaq qátesinde (URLError) 2 ret qайта sınайды.
+
+    HTTPError qайта sınalmaydı — bul haqıyqıy API qátesi (mısalı, 402/400)."""
+    last_err: urllib.error.URLError | None = None
+    for attempt in range(NETWORK_RETRIES):
+        try:
+            return urllib.request.urlopen(req, timeout=timeout)
+        except urllib.error.HTTPError:
+            raise
+        except urllib.error.URLError as e:
+            last_err = e
+            if attempt < NETWORK_RETRIES - 1:
+                time.sleep(0.8 * (attempt + 1))
+    raise last_err
 
 
 def _api_key() -> str:
@@ -57,7 +76,7 @@ def list_voices() -> list:
         headers={"xi-api-key": _api_key()},
     )
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with _urlopen_retrying(req, timeout=15) as resp:
             data = json.loads(resp.read().decode("utf-8"))
     except urllib.error.URLError as e:
         raise VoiceError(f"Dawıslar dizimin alıp bolmadı: {e}") from e
@@ -111,7 +130,7 @@ def listen_raw(audio_bytes: bytes, language_code=None, keyterms=None, content_ty
         headers={"xi-api-key": _api_key(), "Content-Type": ctype},
     )
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with _urlopen_retrying(req, timeout=30) as resp:
             data = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", "replace")[:200]
@@ -188,7 +207,7 @@ def speak(text: str, voice_id: str, bridge: bool = True, language_code: str | No
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with _urlopen_retrying(req, timeout=30) as resp:
             return resp.read()
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", "replace")[:200]
