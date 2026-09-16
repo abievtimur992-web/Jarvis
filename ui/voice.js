@@ -151,6 +151,12 @@
       if (finalText && window.JarvisChat) {
         await window.JarvisChat.send(finalText);
       } else {
+        if (window.JarvisShowAnswer)
+          window.JarvisShowAnswer(
+            "DAWIS JOQ",
+            "Dawısıńızdı tolıq túsinbedim, sorawdı qayta aytıp beriń.",
+            ""
+          );
         setReactor(null, "Tayar");
       }
     } catch (e) {

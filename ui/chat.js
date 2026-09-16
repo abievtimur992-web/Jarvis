@@ -34,6 +34,13 @@
     return JSON.stringify(card, null, 2);
   }
 
+  function spokenSummary(reply) {
+    // Uzın, kóp abzatlı juwapta tek birinshi abzat dawısqa aylandırıladı
+    // (prompt.md: "Dawıs haqqında" bólimi) — tolıq tekst ekranda qaladı.
+    const firstBreak = reply.indexOf("\n\n");
+    return firstBreak === -1 ? reply : reply.slice(0, firstBreak).trim();
+  }
+
   async function send(text) {
     const fetchJSON = window.JarvisFetchJSON || ((u) => fetch(u).then((r) => r.json()));
     try {
@@ -61,13 +68,13 @@
         return;
       }
 
-      const spoken = data.reply || "...";
+      const reply = data.reply || "...";
       const body = cardBodyFromTool(data.card);
       const badge = data.card ? String(data.card.tool || "sáwbet").toUpperCase() : "SÁWBET";
-      window.JarvisShowAnswer(badge, spoken, body);
+      window.JarvisShowAnswer(badge, reply, body);
 
       if (window.JarvisVoice && window.JarvisVoice.speak) {
-        window.JarvisVoice.speak(spoken);
+        window.JarvisVoice.speak(spokenSummary(reply));
       }
     } catch (e) {
       window.JarvisShowAnswer("QÁTE", "Serverge jete almadım.", String((e && e.message) || e));
