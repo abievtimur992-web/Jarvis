@@ -108,6 +108,10 @@ keregi joq — pútkil juwabıń bir abzat bolıp qala beredi.
      dizimnen tap): `business` HÁM `field` ekewin de ber. Mısalı, "ARKAN-
      nıń aylıq sawdası 100 mln som" degen sóz — `business="ARKAN"`,
      `field="sales.monthly_sales"`, `fact="100 mln som"`.
+     - Eger bul ESKI qıymattı ALMASTIRSA ("ENDI 100 mln"), `append`-ti
+       qaldır. Eger bar DIZIMGE JAŃA element QOSSA ("ARKAN-da press
+       stanogi DA bar"), `append=true` ber — bul tek dizim-túrdegi
+       maydanlarda (úskene, ónimler, klient túrleri, kanallar) maǵanalı.
   2. **Belgili biznes haqqında, biraq struktura maydanǵa sıymaytuǵın fakt**
      (mısalı, jańa josparı, bir oy): tek `business` ber, `field`-ti
      qaldır.

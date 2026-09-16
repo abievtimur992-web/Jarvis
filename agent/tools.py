@@ -140,15 +140,24 @@ def research_web(query: str, profile: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def remember(memory_dir: Path, fact: str, business: str = "", field: str = "") -> dict:
+def remember(memory_dir: Path, fact: str, business: str = "", field: str = "", append: bool = False) -> dict:
     """
     Úsh jol menen jazadı (bir-birinen bólek saqlanadı, business.py qara):
       1) business + field ekewi de berilse hám field durıs bolsa —
          BUSINESS DATA (struktura maydan, memory/business_data/<biznes>.json).
+         - append=True HÁM field type="list" bolsa — bar dizimge JAŃA
+           element QOSADI (business_mod.append_to_list_field; dublikattı
+           óziniń ishinde biykarlaydı — bul jerde qaytalanbaydı).
+         - basqa jaǵdayda (append=False, yamasa append=True biraq field
+           SCALAR bolsa) — burıngıday set_field (JAŃALAW/ALMASTIRIW,
+           eskisi "aldınǵısı" retinde saqlanadı). Yaǵnıy append=True
+           scalar maydanda QÁTE bermeydi, tek biykarlanıp set_field-ke
+           ótedi ("safe fallback").
       2) tek business berilse (yamasa field durıs bolmasa) — BUSINESS
          KNOWLEDGE (sol biznestiń erkin jazba bólimi).
       3) hesh qaysısı berilmese — burıngıday PERSONAL MEMORY
-         (memory/<sáne>-<slug>.md, memory.py arqalı).
+         (memory/<sáne>-<slug>.md, memory.py arqalı). append parametri
+         bul jolǵa hesh tásir etpeydi.
     """
     fact = (fact or "").strip()
     if not fact:
@@ -159,11 +168,33 @@ def remember(memory_dir: Path, fact: str, business: str = "", field: str = "") -
 
     if business and field:
         try:
-            path = business_mod.set_field(memory_dir, business, field, fact)
             label = business_mod.field_label(field)
+            if append and business_mod.field_type(field) == "list":
+                business_mod.append_to_list_field(memory_dir, business, field, fact)
+                return {
+                    "spoken": f'{business} ushın "{label}" dizimine qostım: "{fact}".',
+                    "card": {
+                        "tool": "remember",
+                        "kind": "business_data",
+                        "operation": "append",
+                        "business": business,
+                        "field": field,
+                        "text": fact,
+                        "status": "ok",
+                    },
+                }
+            business_mod.set_field(memory_dir, business, field, fact)
             return {
                 "spoken": f'{business} ushın "{label}" maydanına jazıp qoydım: "{fact}".',
-                "card": {"tool": "remember", "kind": "business_data", "business": business, "field": field, "text": fact},
+                "card": {
+                    "tool": "remember",
+                    "kind": "business_data",
+                    "operation": "replace",
+                    "business": business,
+                    "field": field,
+                    "text": fact,
+                    "status": "ok",
+                },
             }
         except ValueError:
             pass  # belgisiz field-key bolsa, tómendegi business_knowledge jolına ótedi
@@ -288,9 +319,21 @@ TOOL_DEFINITIONS = [
             "aydan keyin de kerek boliwı mumkin bolǵanda qollanıladı. Eger fakt belgili "
             "bir biznes haqqında bolsa, 'business' parametrin ber. Eger ol sonıń ústine "
             "struktura maydanǵa da sáykes kelse (aylıq sawda, kirim, maqset h.t.b.), "
-            "'field' parametrin de ber — sonda ol maydan JAŃALANADI (eski qıymatı "
-            "joǵalmaydı, 'aldınǵısı' retinde saqlanadı). business/field bolmasa, "
-            "ápiwayı jeke jazba retinde saqlanadı."
+            "'field' parametrin de ber. business/field bolmasa, ápiwayı jeke jazba "
+            "retinde saqlanadı.\n\n"
+            "ALMASTIRIW vs QOSIW (append): eki qıylı jaǵday bar —\n"
+            "1) ESKI QIYMATTI ALMASTIRADI ('ARKAN-nıń aylıq sawdası ENDI 100 mln "
+            "som', 'bahası 80-nen 120-ǵa ózgerdi' — bir ólshem jańa qıymatqa ótedi): "
+            "'append' bermey qaldır (yamasa false). Bul hámishe scalar maydanlarda "
+            "(sawda, kirim, maqset h.t.b.) durı jol.\n"
+            "2) BAR DIZIMGE JAŃA ELEMENT QOSADI ('ARKAN-da PRESS stanogi DA bar', "
+            "'klientler arasında qurılıs kompaniyaları DA bar' — eskisi qalıp, "
+            "ústine biri qosıladı): 'append' true et. Bul TEK type=list "
+            "maydanlarda maǵanalı (equipment, main_products, target_customers, "
+            "segments, acquisition_channels). Sóz-belgiler ('da', 'tağı', 'bar "
+            "eken') kómek beredi, biraq tek olarǵa qarap emes — sáwbet mánisine "
+            "qarap sheshiw kerek. Scalar maydanda append=true jiberilse, tool ózi "
+            "biykarlap, ápiwayı almastırıw retinde isleydi (qáte bermeydi)."
         ),
         "input_schema": {
             "type": "object",
@@ -304,6 +347,14 @@ TOOL_DEFINITIONS = [
                     "type": "string",
                     "description": "Eger fakt struktura maydanǵa sáykes kelse, sonıń kodı. Sáykes kelmese qaldır.",
                     "enum": business_mod.known_field_keys(),
+                },
+                "append": {
+                    "type": "boolean",
+                    "description": (
+                        "true — bar dizimge JAŃA element qosıw (tek type=list "
+                        "maydanlarda maǵanalı). false yamasa qaldırılsa (standart) — "
+                        "eski qıymattı almastırıw. Joğarıdaǵı túsindirmedi qara."
+                    ),
                 },
             },
             "required": ["fact"],
@@ -341,6 +392,7 @@ def run_tool(name: str, tool_input: dict, ctx: dict) -> dict:
             tool_input.get("fact", ""),
             business=tool_input.get("business", ""),
             field=tool_input.get("field", ""),
+            append=bool(tool_input.get("append", False)),
         )
     if name == "plan_day":
         return plan_day(v, profile)
