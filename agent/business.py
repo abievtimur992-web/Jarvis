@@ -380,6 +380,81 @@ def set_field(memory_dir: Path, business_name: str, field_key: str, value: str) 
     return path
 
 
+def _dedupe_preserve_order(values) -> list:
+    """Dublikatlardı alıp taslaydı (kaa.casefold + strip — MINIMAL
+    normalizatsiya, tek qásiyetsiz parıqlar ushın), birinshi ushırasqan
+    original jazılıwın saqlaydı. None/bos qatarlar ótkerip jiberiledi."""
+    seen = set()
+    result = []
+    for v in values:
+        if not isinstance(v, str):
+            continue
+        v = v.strip()
+        if not v:
+            continue
+        key = kaa.casefold(v)
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(v)
+    return result
+
+
+def append_to_list_field(memory_dir: Path, business_name: str, field_key: str, value: str) -> Path:
+    """LIST-type maydanǵa jańa element QOSADI — bar elementlerdi hesh
+    qashan almastırmaydı. `set_field()`-ten parqı: bul jerde 'previous'
+    mexanizmi QOLLANILMAYDI (list-tiń ózi — aǵımdaǵı jıynaq, tariyx
+    emes; 9-tarawdı qara).
+
+    Eski maǵlıwmattı JOǴALTPAW principi:
+      - Eger maydan búrın SCALAR (Fasa-1-den qalǵan bir qatar) bolsa,
+        ol avtomat birinshi element etip alınadı.
+      - Eger sonıń "previous"-i de bar bolsa (SCALAR bolǵanda `set_field`
+        arqalı jazılǵan aldınǵı nusqa), ol da dizimge kiredi — hesh bir
+        tariyxıy qıymat joǵalmaydı, tek endi bólek elementler retinde.
+      - Qaytalanǵan qıymat (bos orın/úlken-kishi hárip parqı esapqa
+        alınbay) ekinshi ret qosılmaydı — birinshi ushırasqan jazılıwı
+        saqlanadı.
+    """
+    if field_key not in known_field_keys():
+        raise ValueError(f"belgisiz maydan: {field_key}")
+    if field_type(field_key) != "list":
+        raise ValueError(f"'{field_key}' LIST maydan emes (type=scalar) — append_to_list_field ushın jaramsız")
+
+    value = (value or "").strip()
+    if not value:
+        raise ValueError("qosılatuǵın qıymat bos boldı")
+
+    path, data, now = _load_or_init(memory_dir, business_name)
+    section, _, field = field_key.partition(".")
+    section_data = data["fields"].setdefault(section, {})
+    existing = section_data.get(field)
+
+    pool = []
+    if existing:
+        old_value = existing.get("value")
+        if isinstance(old_value, list):
+            pool.extend(old_value)
+        elif isinstance(old_value, str):
+            pool.append(old_value)
+        prev = existing.get("previous") or {}
+        prev_value = prev.get("value")
+        if isinstance(prev_value, list):
+            pool.extend(prev_value)
+        elif isinstance(prev_value, str):
+            pool.append(prev_value)
+    pool.append(value)
+
+    items = _dedupe_preserve_order(pool)
+
+    # LIST maydan ushın "previous" jazılmaydı — eski entry-de bar bolsa da
+    # taslanadı (endi barlıq tariyxıy qıymatlar items ishinde saqlanǵan).
+    section_data[field] = {"value": items, "updated_at": now}
+    data["updated_at"] = now
+    _atomic_write(path, data)
+    return path
+
+
 def add_knowledge_note(memory_dir: Path, business_name: str, text: str) -> Path:
     """Struktura maydanǵa sıymaytuǵın erkin fakttı (BUSINESS KNOWLEDGE)
     sol biznestiń jazbasına qosadı."""
@@ -418,8 +493,9 @@ def format_business_summary(data: dict, max_notes: int = 5) -> str:
             entry = section_data.get(field)
             if not entry:
                 continue
-            note = " [tizim maydanı — házirshe tek eń soyǵı jazba]" if field_meta["type"] == "list" else ""
-            lines.append(f"- {field_meta['label']}: {entry.get('value')}{note} (jańalanǵan: {entry.get('updated_at', '?')[:10]})")
+            raw_value = entry.get("value")
+            shown = "; ".join(raw_value) if isinstance(raw_value, list) else raw_value
+            lines.append(f"- {field_meta['label']}: {shown} (jańalanǵan: {entry.get('updated_at', '?')[:10]})")
 
     notes = data.get("notes") or []
     if notes:
