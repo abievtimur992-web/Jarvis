@@ -18,6 +18,15 @@ papkasına Jarvis hesh qashan jazbaydı, bul qatań qaǵıyda).
 Demo/real rejimnen ǵárezsiz: memory_dir() hámishe PROJECT_ROOT/memory
 bolǵanı sıyaqlı, business_data da sol jerde — demo maǵlıwmatı menen
 aralaspaydı.
+
+SXEMA STANDARDIZATSIYASI (2-fazA): hár maydannıń endi úsh metadatası bar
+— label (kórinetuǵın atı), type ("scalar" — bir qıymat, hámishe eń
+soyǵısı jazıladı; "list" — tábiyiy túrde bir nesheden turıwı kerek,
+biraq usı fazada háli tek scalar sıyaqlı bir "eń soyǵı jazba" saqlaydı,
+append_to_list_field() KELESI fazada qosıladı — bul jerde tek BELGI),
+description (bir gápte túsindirme). Eski (LEGACY) maydan atları
+LEGACY_FIELD_ALIASES arqalı jańa atlarǵa avtomat kóshiriledi, derek
+JOǴALMAYDI.
 """
 
 from __future__ import annotations
@@ -33,96 +42,133 @@ import kaa
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 # ---------------------------------------------------------------------------
-# Onboarding sxeması (Timur soraǵan A-H bólimleri)
+# Onboarding sxeması (Timur soraǵan A-H bólimleri, standartlastırılǵan)
 # ---------------------------------------------------------------------------
+#
+# Hár maydan: {"label": ..., "type": "scalar"|"list", "description": ...}
+#
+# type="list" degeni — bul maydan tábiyiy túrde bir nesheden turadı
+# (mısalı, bir biznesde bir nesha úskene boliwı múmkin). Házirshe (usı
+# faza) LIST maydanlar da SCALAR sıyaqlı isleydi — set_field() hámishe
+# tek "eń soyǵı jazba"nı saqlaydı, eskisi "previous"-ke ótedi. Kóp
+# elementti dizim retinde QOSIP barıw (append_to_list_field) — KELESI
+# faza, bul jerde ámelge asırılmaydı (Timur ózi ataylı sorap atır).
 
 FIELD_SCHEMA = {
     "identity": {
         "label": "Biznes tuwralı",
         "fields": {
-            "business_type": "Biznes túri",
-            "location": "Jaylasqan jeri",
-            "years_operating": "Neshe jıldan beri isleydi",
-            "owner": "Iyesi",
-            "employees": "Xızmetkerler sanı",
+            "business_type": {"label": "Biznes túri", "type": "scalar", "description": "Biznes qaysı salada isleydi"},
+            "location": {"label": "Jaylasqan jeri", "type": "scalar", "description": "Biznestiń jaylasqan jeri"},
+            "years_operating": {"label": "Neshe jıldan beri isleydi", "type": "scalar", "description": "Biznestiń jası"},
+            "owner": {"label": "Iyesi", "type": "scalar", "description": "Biznestiń iyesi"},
+            "employees": {"label": "Xızmetkerler sanı", "type": "scalar", "description": "Komandadaǵı adam sanı"},
         },
     },
     "products": {
         "label": "Ónimler/xızmetler",
         "fields": {
-            "categories": "Ónim kategoriyaları",
-            "main_products": "Tiykarǵı ónimler",
-            "services": "Xızmetler",
-            "production_capabilities": "Islep shıǵarıw múmkinshiligi",
-            "equipment": "Úskene",
+            "categories": {"label": "Ónim kategoriyaları", "type": "scalar", "description": "Ónim túrleriniń ulıwma kategoriyaları"},
+            "main_products": {"label": "Tiykarǵı ónimler", "type": "list", "description": "Biznestiń tiykarǵı ónimleri (birnesheden turıwı múmkin)"},
+            "services": {"label": "Xızmetler", "type": "scalar", "description": "Kórsetiletuǵın xızmetler"},
+            "production_capabilities": {"label": "Islep shıǵarıw múmkinshiligi", "type": "scalar", "description": "Islep shıǵarıw quwatı/múmkinshiligi"},
+            "equipment": {"label": "Úskene", "type": "list", "description": "Biznestiń iyelik etetuǵın/qollanatuǵın úskeneleri (birnesheden turıwı múmkin)"},
         },
     },
     "customers": {
         "label": "Klientler",
         "fields": {
-            "target_customers": "Maqsetli klientler",
-            "segments": "Klient segmentleri",
-            "avg_customers_month": "Aylıq ortasha klient sanı",
-            "repeat_customers": "Qayta kelgen klientler",
-            "avg_check": "Ortasha chek",
+            "target_customers": {
+                "label": "Maqsetli klientler",
+                "type": "list",
+                "description": "Biznes KIMGE satadı — tiykarǵı klient tipleri (mısalı: B2B firmalar, úy salıwshılar)",
+            },
+            "segments": {
+                "label": "Klient segmentleri",
+                "type": "list",
+                "description": "Bar klientler QALAY bólinip qaraladı — segmentatsiya (mısalı: jańa/turaqlı, úlken/kishi buyırtpa)",
+            },
+            "average_monthly_customers": {"label": "Aylıq ortasha klient sanı", "type": "scalar", "description": "Bir ayda ortasha neshe klient"},
+            "repeat_customers": {"label": "Qayta kelgen klientler", "type": "scalar", "description": "Qayta buyırtpa beretuǵın klientler dárejesi"},
         },
     },
     "sales": {
         "label": "Sawda",
         "fields": {
-            "monthly_sales": "Aylıq sawda",
-            "channels": "Sawda kanalları",
-            "seasonality": "Mawsımlıq",
-            "conversion": "Konversiya",
-            "leads": "Leadlar",
+            "monthly_sales": {"label": "Aylıq sawda", "type": "scalar", "description": "Bir aydaǵı jalpı sawda summası"},
+            "average_check": {"label": "Ortasha chek", "type": "scalar", "description": "Bir satıwdıń ortasha qunı"},
+            "channels": {"label": "Sawda kanalları", "type": "scalar", "description": "Qalay satıladı (dúkan, online, tapsırıs h.t.b.)"},
+            "seasonality": {"label": "Mawsımlıq", "type": "scalar", "description": "Jıl mawsımına baylanıslı ózgeris"},
+            "conversion": {"label": "Konversiya", "type": "scalar", "description": "Qızıǵıwshılardıń qansha bólegi satıp aladı"},
+            "leads": {"label": "Leadlar", "type": "scalar", "description": "Potensial klient aǵımı"},
         },
     },
     "finance": {
         "label": "Finans",
         "fields": {
-            "revenue": "Kirim",
-            "cost": "Shıǵın",
-            "gross_margin": "Jalpı marja",
-            "fixed_costs": "Turaqlı shıǵınlar",
-            "debts": "Qarızlar",
-            "investments": "Investitsiyalar",
-            "cash_flow": "Aqsha aǵımı",
+            "revenue": {"label": "Kirim", "type": "scalar", "description": "Jalpı kirim"},
+            "cost": {"label": "Shıǵın", "type": "scalar", "description": "Jalpı shıǵın"},
+            "gross_margin": {"label": "Jalpı marja", "type": "scalar", "description": "Kirim menen tannarxı arasındaǵı parq, protsentte"},
+            "fixed_costs": {"label": "Turaqlı shıǵınlar", "type": "scalar", "description": "Hár ay tákirarlanatuǵın shıǵınlar"},
+            "debts": {"label": "Qarızlar", "type": "scalar", "description": "Bank krediti, tanıslardan qarız h.t.b."},
+            "investments": {"label": "Investitsiyalar", "type": "scalar", "description": "Bizneske salınǵan qosımsha aqsha"},
+            "cash_flow": {"label": "Aqsha aǵımı", "type": "scalar", "description": "Aqshanıń kiriw-shıǵıw teppesi"},
         },
     },
     "marketing": {
         "label": "Marketing",
         "fields": {
-            "instagram": "Instagram",
-            "telegram": "Telegram",
-            "advertising": "Reklama",
-            "acquisition_channels": "Klient tabıw kanalları",
-            "competitors": "Baseketlesler",
+            "instagram": {"label": "Instagram", "type": "scalar", "description": "Instagram akkauntınıń jaǵdayı"},
+            "telegram": {"label": "Telegram", "type": "scalar", "description": "Telegram kanalınıń jaǵdayı"},
+            "advertising": {"label": "Reklama", "type": "scalar", "description": "Reklama/target jumısınıń jaǵdayı"},
+            "acquisition_channels": {
+                "label": "Klient tabıw kanalları",
+                "type": "list",
+                "description": "Klientler qaydan keledi — kanallar dizimi (mısalı: sarafan radio, Instagram, tanıslar)",
+            },
+            "competitors": {"label": "Baseketlesler", "type": "scalar", "description": "Nızıq baseketlesler haqqında maǵlıwmat"},
         },
     },
     "goals": {
         "label": "Maqsetler",
         "fields": {
-            "current_goals": "Házirgi maqsetler",
-            "goals_3_months": "3 aylıq maqsetler",
-            "goals_1_year": "1 jıllıq maqsetler",
-            "strategic_goals": "Strategiyalıq maqsetler",
+            "current": {"label": "Házirgi/jaqın múddetli maqset", "type": "scalar", "description": "Házir hám jaqın arada (bir-eki ay) urınılatuǵın maqset"},
+            "one_year": {"label": "1 jıllıq maqset", "type": "scalar", "description": "Kelesi 1 jıl ishinde jetiwi kerek maqset"},
+            "strategic": {"label": "Strategiyalıq baǵdar", "type": "scalar", "description": "Uzaq múddetli, ulıwma strategiyalıq baǵdar"},
         },
     },
     "problems": {
         "label": "Mashqalalar",
         "fields": {
-            "bottlenecks": "Tarlawıq jerler",
-            "biggest_risks": "Eń úlken qáwip",
-            "operational_problems": "Operatsion mashqalalar",
-            "sales_problems": "Sawda mashqalaları",
-            "finance_problems": "Finans mashqalaları",
+            "main": {"label": "Eń tiykarǵı mashqala", "type": "scalar", "description": "Házirgi waqıttaǵı eń úlken/tiykarǵı mashqala"},
+            "bottlenecks": {"label": "Tarlawıq jerler", "type": "scalar", "description": "Jumıstı asıqtırıp turǵan tarlawıq jerler"},
+            "biggest_risks": {"label": "Eń úlken qáwip", "type": "scalar", "description": "Eń úlken qáwip-qater"},
+            "operational_problems": {"label": "Operatsion mashqalalar", "type": "scalar", "description": "Kúndelikli jumıstaǵı mashqalalar"},
+            "sales_problems": {"label": "Sawda mashqalaları", "type": "scalar", "description": "Sawdaǵa baylanıslı mashqalalar"},
+            "finance_problems": {"label": "Finans mashqalaları", "type": "scalar", "description": "Finansqa baylanıslı mashqalalar"},
         },
     },
 }
 
+# ---------------------------------------------------------------------------
+# Eski (legacy) maydan atları -> jańa standart atlar. Derek oqılǵanda
+# avtomat kóshiriledi (migratsiya), hesh nárse joǵalmaydı.
+# ---------------------------------------------------------------------------
+
+LEGACY_FIELD_ALIASES = {
+    "customers.avg_check": "sales.average_check",
+    "customers.avg_customers_month": "customers.average_monthly_customers",
+    "goals.current_goals": "goals.current",
+    "goals.goals_3_months": "goals.current",  # "jaqın múddetli" — "current" tusinigine kiredi
+    "goals.goals_1_year": "goals.one_year",
+    "goals.strategic_goals": "goals.strategic",
+}
+
 
 def known_field_keys() -> list:
-    """Barlıq durıs 'bólim.maydan' kilitleri, tool-schema enum ushın."""
+    """Barlıq DURIS (jańa, standart) 'bólim.maydan' kilitleri, tool-schema
+    enum ushın. Legacy atlar bul dizimde JOQ — jańa jazıwlar hámishe
+    standart maydanǵa túsedi."""
     keys = []
     for section, meta in FIELD_SCHEMA.items():
         for field in meta["fields"]:
@@ -130,12 +176,23 @@ def known_field_keys() -> list:
     return keys
 
 
-def field_label(field_key: str) -> str:
+def _field_meta(field_key: str):
     section, _, field = field_key.partition(".")
     meta = FIELD_SCHEMA.get(section)
     if not meta:
-        return field_key
-    return meta["fields"].get(field, field_key)
+        return None
+    return meta["fields"].get(field)
+
+
+def field_label(field_key: str) -> str:
+    meta = _field_meta(field_key)
+    return meta["label"] if meta else field_key
+
+
+def field_type(field_key: str) -> str:
+    """'scalar' yamasa 'list'. Belgisiz maydan ushın 'scalar' qaytaradı."""
+    meta = _field_meta(field_key)
+    return meta["type"] if meta else "scalar"
 
 
 # ---------------------------------------------------------------------------
@@ -160,8 +217,81 @@ def _business_path(memory_dir: Path, business_name: str) -> Path:
 
 
 # ---------------------------------------------------------------------------
+# Legacy migratsiya — derek JOǴALMAYDI, tek jańa kilitke kóshedi
+# ---------------------------------------------------------------------------
+
+
+def _merge_entry(dest: dict, incoming: dict) -> dict:
+    """Eki entry (value/updated_at/previous) kelse, jańasın (updated_at
+    úlken) "aǵımdaǵı" etip qaldıradı, eskisin "previous" retinde saqlaydı.
+    Hesh bir qıymat joǵalmaydı."""
+    if not dest:
+        return incoming
+    if not incoming:
+        return dest
+    newer, older = (dest, incoming) if dest.get("updated_at", "") >= incoming.get("updated_at", "") else (incoming, dest)
+    merged = {"value": newer["value"], "updated_at": newer["updated_at"]}
+    prev = newer.get("previous") or {"value": older.get("value"), "updated_at": older.get("updated_at")}
+    merged["previous"] = prev
+    return merged
+
+
+def _migrate_legacy_fields(data: dict) -> tuple:
+    """Eski bólim.maydan kilitlerin (LEGACY_FIELD_ALIASES) jańasına
+    kóshiredi. (data, ózgeris_boldı_ma) qaytaradı."""
+    fields = data.get("fields") or {}
+    changed = False
+
+    for old_key, new_key in LEGACY_FIELD_ALIASES.items():
+        old_section, _, old_field = old_key.partition(".")
+        old_section_data = fields.get(old_section)
+        if not old_section_data or old_field not in old_section_data:
+            continue
+
+        old_entry = old_section_data.pop(old_field)
+        if not old_section_data:
+            fields.pop(old_section, None)
+
+        new_section, _, new_field = new_key.partition(".")
+        new_section_data = fields.setdefault(new_section, {})
+        new_section_data[new_field] = _merge_entry(new_section_data.get(new_field), old_entry)
+        changed = True
+
+    data["fields"] = fields
+    return data, changed
+
+
+# ---------------------------------------------------------------------------
 # Oqıw
 # ---------------------------------------------------------------------------
+
+
+def _read_json(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _load_and_migrate(memory_dir: Path, business_name: str):
+    """Fayldı oqıydı, legacy maydanlar bolsa jańasına kóshiredi hám
+    (ózgeris bolsa) diskke qayta jazadı — burınǵı fayl .json.bak retinde
+    saqlanadı (bir ret, qáwipsizlik ushın)."""
+    path = _business_path(memory_dir, business_name)
+    if not path.exists():
+        return path, None
+
+    raw_text = path.read_text(encoding="utf-8")
+    data = json.loads(raw_text) if raw_text.strip() else {}
+    data, changed = _migrate_legacy_fields(data)
+
+    if changed:
+        backup = path.with_suffix(".json.bak")
+        if not backup.exists():
+            backup.write_text(raw_text, encoding="utf-8")
+        _atomic_write(path, data)
+
+    return path, data
 
 
 def list_businesses(memory_dir: Path) -> list:
@@ -171,23 +301,17 @@ def list_businesses(memory_dir: Path) -> list:
         return []
     names = []
     for path in sorted(d.glob("*.json")):
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
+        data = _read_json(path)
+        if data:
             names.append(data.get("business_name") or path.stem)
-        except Exception:
-            continue
     return names
 
 
 def load_business(memory_dir: Path, business_name: str):
-    """Bir biznestiń tolıq JSON-ın qaytaradı, joq bolsa None."""
-    path = _business_path(memory_dir, business_name)
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
+    """Bir biznestiń tolıq JSON-ın qaytaradı (legacy maydanlar avtomat
+    jańa atqa kóshirilgen halda), joq bolsa None."""
+    _, data = _load_and_migrate(memory_dir, business_name)
+    return data
 
 
 def find_business_in_text(memory_dir: Path, text: str):
@@ -213,14 +337,9 @@ def _atomic_write(path: Path, data: dict) -> None:
 
 
 def _load_or_init(memory_dir: Path, business_name: str) -> tuple:
-    path = _business_path(memory_dir, business_name)
+    path, data = _load_and_migrate(memory_dir, business_name)
     now = _dt.datetime.now().isoformat(timespec="seconds")
-    if path.exists():
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
-            data = {}
-    else:
+    if data is None:
         data = {}
     data.setdefault("business_name", business_name)
     data.setdefault("created_at", now)
@@ -231,7 +350,13 @@ def _load_or_init(memory_dir: Path, business_name: str) -> tuple:
 
 def set_field(memory_dir: Path, business_name: str, field_key: str, value: str) -> Path:
     """Struktura maydandı jańalaydı. Eski qıymat joǵalmaydı — 'previous'
-    retinde saqlanadı (tolıq versiya tariyxı EMES, tek aldınǵısı)."""
+    retinde saqlanadı (tolıq versiya tariyxı EMES, tek aldınǵısı).
+
+    Eskertiw: type="list" belgilengen maydanlar da (equipment,
+    main_products, target_customers, segments, acquisition_channels)
+    házirshe usı funktsiya arqalı SCALAR sıyaqlı isleydi — hár jazıw
+    eskisin almastıradı, QOSPAYDI. Kóp elementti dizim retinde saqlaw —
+    kelesi fazadaǵı append_to_list_field() ushın."""
     if field_key not in known_field_keys():
         raise ValueError(f"belgisiz maydan: {field_key}")
     value = (value or "").strip()
@@ -289,10 +414,12 @@ def format_business_summary(data: dict, max_notes: int = 5) -> str:
             empty_sections.append(meta["label"])
             continue
         lines.append(f"\n## {meta['label']}")
-        for field, label in meta["fields"].items():
+        for field, field_meta in meta["fields"].items():
             entry = section_data.get(field)
-            if entry:
-                lines.append(f"- {label}: {entry.get('value')} (jańalanǵan: {entry.get('updated_at', '?')[:10]})")
+            if not entry:
+                continue
+            note = " [tizim maydanı — házirshe tek eń soyǵı jazba]" if field_meta["type"] == "list" else ""
+            lines.append(f"- {field_meta['label']}: {entry.get('value')}{note} (jańalanǵan: {entry.get('updated_at', '?')[:10]})")
 
     notes = data.get("notes") or []
     if notes:
