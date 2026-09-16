@@ -243,7 +243,23 @@ def call_anthropic(messages: list, system_prompt: str) -> dict:
 
 
 def run_conversation_turn(user_text: str) -> dict:
-    """Bir gezek sáwbet: iye tekstin qabıl etip, aqırǵı juwaptı qaytaradı."""
+    """Bir gezek sáwbet: iye tekstin qabıl etip, aqırǵı juwaptı qaytaradı.
+
+    Gezek ortasında (mısalı, tool ishinde qátelik shıqsa yamasa Anthropic
+    HTTPError qaytarsa) qátelik shıqsa, usı gezekte _CONVERSATION-ǵa
+    qosılǵannıń ХАММЕSI biykarlanadı (rollback). Bolmasa, jarım-jasar
+    qalǵan tool_use/tool_result jubı _CONVERSATION-da MÁNGI qalıp,
+    KELESI hár bir gezekte de sonı Anthropic-qa jiberip, hámishe sol 400
+    qátesin qaytara beredi — server qayta iske túsirilgenshe."""
+    turn_start_len = len(_CONVERSATION)
+    try:
+        return _run_conversation_turn_inner(user_text)
+    except Exception:
+        del _CONVERSATION[turn_start_len:]
+        raise
+
+
+def _run_conversation_turn_inner(user_text: str) -> dict:
     ctx = {
         "vault": get_vault(),
         "profile": _load_profile(),
