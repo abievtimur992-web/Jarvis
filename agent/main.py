@@ -167,10 +167,34 @@ def _load_profile() -> dict:
     return {}
 
 
+def _is_turn_start(message: dict) -> bool:
+    """True — bul xabar haqıyqıy jańa gezektiń basy (iyeniń tekst sorawı).
+    False — bul tool_use (assistant) yamasa tool_result (user) xabarı,
+    yaǵnıy bir gezektiń ORTASI — sonnan kesiw Anthropic API-ge "juwı joq
+    tool_result" qátesin beredi."""
+    if message.get("role") != "user":
+        return False
+    content = message.get("content")
+    if isinstance(content, str):
+        return True
+    if isinstance(content, list):
+        return not any(isinstance(b, dict) and b.get("type") == "tool_result" for b in content)
+    return True
+
+
 def _trim_history() -> None:
+    """Sońǵı ~MAX_HISTORY_TURNS gezekti qaldıradı, biraq kesiw noqatı
+    hámishe HAQIYQIY gezek basına tuwrı keliwi kerek — bolmasa qalǵan
+    tarıйх tool_use/tool_result jubınıń biri joq halda qaladı, sonda
+    Anthropic API 400 qátesin qaytaradı ("tool_use_id ... found in
+    tool_result ... no corresponding tool_use")."""
     max_messages = MAX_HISTORY_TURNS * 2
-    if len(_CONVERSATION) > max_messages:
-        del _CONVERSATION[: len(_CONVERSATION) - max_messages]
+    if len(_CONVERSATION) <= max_messages:
+        return
+    cut = len(_CONVERSATION) - max_messages
+    while cut < len(_CONVERSATION) and not _is_turn_start(_CONVERSATION[cut]):
+        cut += 1
+    del _CONVERSATION[:cut]
 
 
 _TOOLS_WITH_CACHE = None
