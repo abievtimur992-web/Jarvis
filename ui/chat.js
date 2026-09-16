@@ -12,15 +12,23 @@
   function cardBodyFromTool(card) {
     if (!card) return "";
     if (card.tool === "search_brain") {
-      if (!card.results || !card.results.length) return "Hesh nárse tabılmadı.";
-      return card.results
-        .map((r) => "• " + r.title + " (" + (r.path || r.type) + ")\n  " + (r.excerpt ? r.excerpt.slice(0, 160) + "…" : ""))
-        .join("\n\n");
+      const parts = [];
+      if (card.results && card.results.length) {
+        parts.push(
+          card.results
+            .map((r) => "• " + r.title + " (" + (r.path || r.type) + ")\n  " + (r.excerpt ? r.excerpt.slice(0, 160) + "…" : ""))
+            .join("\n\n")
+        );
+      }
+      if (card.business) parts.push(card.business);
+      return parts.length ? parts.join("\n\n---\n\n") : "Hesh nárse tabılmadı.";
     }
     if (card.tool === "research_web") {
       return (card.lines || []).join("\n");
     }
     if (card.tool === "remember") {
+      if (card.kind === "business_data") return "Biznes: " + card.business + "\nMaydan: " + card.field + "\nTekst: " + card.text;
+      if (card.kind === "business_knowledge") return "Biznes: " + card.business + "\nTekst: " + card.text;
       return "Fayl: " + card.file + "\nTekst: " + card.text;
     }
     if (card.tool === "plan_day") {

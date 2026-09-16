@@ -18,6 +18,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+import business as business_mod
 import kaa
 import memory as memory_mod
 import vault as vault_mod
@@ -27,19 +28,32 @@ import vault as vault_mod
 # ---------------------------------------------------------------------------
 
 
-def search_brain(v: vault_mod.Vault, query: str) -> dict:
+def search_brain(v: vault_mod.Vault, query: str, memory_dir: Path) -> dict:
     results = vault_mod.search(v, query, limit=5)
-    if not results:
+
+    # BUSINESS DATA/KNOWLEDGE (memory/business_data/*.json) — sorawda belgili
+    # biznes atı ushırasa, oniń struktura maydanları hám erkin jazbaları da
+    # qosıladı. Bul — PERSONAL MEMORY (memory.py-diń dúz fayllari) EMES,
+    # bólek saqlanadı (business.py qara).
+    business_data = business_mod.find_business_in_text(memory_dir, query)
+    business_summary = business_mod.format_business_summary(business_data) if business_data else None
+
+    if not results and not business_summary:
         return {
             "spoken": f'"{query}" haqqında jazbalarda hesh nárse tabılmadı.',
-            "card": {"tool": "search_brain", "query": query, "results": []},
+            "card": {"tool": "search_brain", "query": query, "results": [], "business": None},
         }
 
     titles = [n.title for n, _ in results[:3]]
     if len(results) == 1:
         spoken = f"{titles[0]} jazbasında taptım."
-    else:
+    elif results:
         spoken = f"{len(results)} jazbada taptım: {', '.join(titles)}."
+    else:
+        spoken = ""
+    if business_summary:
+        biz_line = f"{business_data.get('business_name')} haqqında biznes maǵlıwmatın da taptım."
+        spoken = f"{spoken} {biz_line}".strip() if spoken else biz_line
 
     return {
         "spoken": spoken,
@@ -55,6 +69,7 @@ def search_brain(v: vault_mod.Vault, query: str) -> dict:
                 }
                 for n, _ in results
             ],
+            "business": business_summary,
         },
     }
 
@@ -125,7 +140,16 @@ def research_web(query: str, profile: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def remember(memory_dir: Path, fact: str) -> dict:
+def remember(memory_dir: Path, fact: str, business: str = "", field: str = "") -> dict:
+    """
+    Úsh jol menen jazadı (bir-birinen bólek saqlanadı, business.py qara):
+      1) business + field ekewi de berilse hám field durıs bolsa —
+         BUSINESS DATA (struktura maydan, memory/business_data/<biznes>.json).
+      2) tek business berilse (yamasa field durıs bolmasa) — BUSINESS
+         KNOWLEDGE (sol biznestiń erkin jazba bólimi).
+      3) hesh qaysısı berilmese — burıngıday PERSONAL MEMORY
+         (memory/<sáne>-<slug>.md, memory.py arqalı).
+    """
     fact = (fact or "").strip()
     if not fact:
         return {
@@ -133,11 +157,28 @@ def remember(memory_dir: Path, fact: str) -> dict:
             "card": {"tool": "remember", "file": None, "text": ""},
         }
 
-    path = memory_mod.write(memory_dir, fact)
+    if business and field:
+        try:
+            path = business_mod.set_field(memory_dir, business, field, fact)
+            label = business_mod.field_label(field)
+            return {
+                "spoken": f'{business} ushın "{label}" maydanına jazıp qoydım: "{fact}".',
+                "card": {"tool": "remember", "kind": "business_data", "business": business, "field": field, "text": fact},
+            }
+        except ValueError:
+            pass  # belgisiz field-key bolsa, tómendegi business_knowledge jolına ótedi
 
+    if business:
+        path = business_mod.add_knowledge_note(memory_dir, business, fact)
+        return {
+            "spoken": f'{business} haqqında jazıp qoydım: "{fact}".',
+            "card": {"tool": "remember", "kind": "business_knowledge", "business": business, "file": path.name, "text": fact},
+        }
+
+    path = memory_mod.write(memory_dir, fact)
     return {
         "spoken": f'Jazıp qoydım: "{fact}" — {path.name} faylına.',
-        "card": {"tool": "remember", "file": path.name, "text": fact},
+        "card": {"tool": "remember", "kind": "personal_memory", "file": path.name, "text": fact},
     }
 
 
@@ -218,7 +259,9 @@ TOOL_DEFINITIONS = [
         "name": "search_brain",
         "description": (
             "Iyeniń jazbalarınan (klientler, ónimler, bahalar, mashqalalar, maqsetler) "
-            "naqtı bir faktti izlew. Hámishe qaysı fayldan tabılǵanın atap ótiw kerek."
+            "naqtı bir faktti izlew. Sorawda belgili biznes atı bolsa, sol biznestiń "
+            "struktura maǵlıwmatı (business data) hám erkin jazbaları (business "
+            "knowledge) da avtomat qosıladı. Hámishe qaysı fayldan tabılǵanın atap ótiw kerek."
         ),
         "input_schema": {
             "type": "object",
@@ -241,13 +284,28 @@ TOOL_DEFINITIONS = [
     {
         "name": "remember",
         "description": (
-            "Bir faktti memory/ papkasına sánelengen fayl etip jazıp qoyıw. Tek iye "
-            "ózi 'esimde saqla' dep sorasa yamasa aytqanı 3 aydan keyin de kerek boliwı "
-            "mumkin bolǵanda qollanıladı."
+            "Bir faktti saqlaw. Tek iye ózi 'esimde saqla' dep sorasa yamasa aytqanı 3 "
+            "aydan keyin de kerek boliwı mumkin bolǵanda qollanıladı. Eger fakt belgili "
+            "bir biznes haqqında bolsa, 'business' parametrin ber. Eger ol sonıń ústine "
+            "struktura maydanǵa da sáykes kelse (aylıq sawda, kirim, maqset h.t.b.), "
+            "'field' parametrin de ber — sonda ol maydan JAŃALANADI (eski qıymatı "
+            "joǵalmaydı, 'aldınǵısı' retinde saqlanadı). business/field bolmasa, "
+            "ápiwayı jeke jazba retinde saqlanadı."
         ),
         "input_schema": {
             "type": "object",
-            "properties": {"fact": {"type": "string", "description": "Saqlanatuǵın bir fakt, qısqa gápte"}},
+            "properties": {
+                "fact": {"type": "string", "description": "Saqlanatuǵın fakt, iyeniń óz sózlerinde, sandı ózgertpey"},
+                "business": {
+                    "type": "string",
+                    "description": "Fakt qaysı biznes haqqında (mısalı ARKAN, ESTELIK, TENAZ). Bolmasa qaldır.",
+                },
+                "field": {
+                    "type": "string",
+                    "description": "Eger fakt struktura maydanǵa sáykes kelse, sonıń kodı. Sáykes kelmese qaldır.",
+                    "enum": business_mod.known_field_keys(),
+                },
+            },
             "required": ["fact"],
         },
     },
@@ -274,11 +332,16 @@ def run_tool(name: str, tool_input: dict, ctx: dict) -> dict:
     memory_dir = ctx["memory_dir"]
 
     if name == "search_brain":
-        return search_brain(v, tool_input.get("query", ""))
+        return search_brain(v, tool_input.get("query", ""), memory_dir)
     if name == "research_web":
         return research_web(tool_input.get("query", ""), profile)
     if name == "remember":
-        return remember(memory_dir, tool_input.get("fact", ""))
+        return remember(
+            memory_dir,
+            tool_input.get("fact", ""),
+            business=tool_input.get("business", ""),
+            field=tool_input.get("field", ""),
+        )
     if name == "plan_day":
         return plan_day(v, profile)
     if name == "brief_me":
