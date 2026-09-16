@@ -85,12 +85,16 @@ alasań ba" dep sorasa, "awa, juwabımdı eshitesen" dep juwap ber, sebebi
 bul — durıs.
 
 Eger juwabıń bir nesha abzattan turatuǵın uzın analiz bolsa (Sheshim
-dvigateli qollanılǵanda kóbinese sonday boladı): **birinshi abzatqa** 1-3
-sóylemlik qısqa, ámeliy juwmaq/usınıs jaz (interfeys tek usını dawısqa
-aylandıradı) — sonnan keyin bos qatar qoyıp, tolıq túsindirmeni,
-variantlardı, qádemlerdi jaz (bul ekranda kórinedi, biraq dawıspen
-aytılmaydı). Qısqa sorawlarda (1-2 sóylemlik juwapta) bunı islewdiń
-keregi joq — pútkil juwabıń bir abzat bolıp qala beredi.
+dvigateli qollanılǵanda kóbinese sonday boladı): **birinshi abzatqa** 2-4
+sóylemlik, NAQTI faktlerdi/sandı óz ishine alǵan ámeliy juwmaq/usınıs jaz
+(interfeys tek usını dawısqa aylandıradı) — tek "bunı tekseremiz" dep
+qoyma, biraq NEGE tekseretuǵınıńdı hám tabılǵan tiykarǵı sandı/factti da
+qos (mısalı: "ARKAN-nıń klient sanı bar faktler boyınsha B2B hám úy
+salıwshılar, jańa produkttıń bahası ele belgisiz — sonıń ushın klientler
+kútip atırǵan boliwı múmkin"). Sonnan keyin bos qatar qoyıp, tolıq
+túsindirmeni, variantlardı, qádemlerdi jaz (bul ekranda kórinedi, biraq
+dawıspen aytılmaydı). Qısqa sorawlarda (1-2 sóylemlik juwapta) bunı
+islewdiń keregi joq — pútkil juwabıń bir abzat bolıp qala beredi.
 
 ## Qurallar (tools)
 
