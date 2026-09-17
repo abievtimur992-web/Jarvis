@@ -38,9 +38,9 @@ class VoiceError(Exception):
 
 
 def _urlopen_retrying(req: urllib.request.Request, timeout: float):
-    """urlopen, biraq ótkinshi tarmaq qátesinde (URLError) 2 ret qайта sınайды.
+    """urlopen, biraq ótkinshi tarmaq qátesinde (URLError) 2 ret qayta sınaydı.
 
-    HTTPError qайта sınalmaydı — bul haqıyqıy API qátesi (mısalı, 402/400)."""
+    HTTPError qayta sınalmaydı — bul haqıyqıy API qátesi (mısalı, 402/400)."""
     last_err: urllib.error.URLError | None = None
     for attempt in range(NETWORK_RETRIES):
         try:
@@ -80,7 +80,10 @@ def list_voices() -> list:
             data = json.loads(resp.read().decode("utf-8"))
     except urllib.error.URLError as e:
         raise VoiceError(f"Dawıslar dizimin alıp bolmadı: {e}") from e
-    return [{"voice_id": v.get("voice_id"), "name": v.get("name")} for v in data.get("voices", [])]
+    return [
+        {"voice_id": v.get("voice_id"), "name": v.get("name"), "category": v.get("category")}
+        for v in data.get("voices", [])
+    ]
 
 
 # ---------------------------------------------------------------------------

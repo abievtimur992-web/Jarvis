@@ -63,17 +63,40 @@ def main() -> None:
     out_dir.mkdir(exist_ok=True)
 
     print(f"{len(voices)} dawıs tabıldı. Hár qaysısınan úlgi jasap atırman...\n")
+    working: list = []
+    paid_plan_needed: list = []
+    other_errors: list = []
     for v in voices:
         vid = v["voice_id"]
         name = v["name"] or vid
+        category = v.get("category") or "?"
         safe_name = "".join(c if c.isalnum() else "_" for c in name)
         out_path = out_dir / f"{safe_name}.mp3"
         try:
             audio = voice_mod.speak(SAMPLE_TEXT, vid, bridge=True)
             out_path.write_bytes(audio)
-            print(f"  {name}  (voice_id={vid})  ->  {out_path.name}")
+            print(f"  [ISLEYDI] {name}  (voice_id={vid}, category={category})  ->  {out_path.name}")
+            working.append((name, vid))
         except voice_mod.VoiceError as e:
-            print(f"  {name}: qátelik — {e}")
+            msg = str(e)
+            if "paid_plan_required" in msg or " 402 " in f" {msg} ":
+                print(f"  [AKILI JOBA KEREK] {name}  (voice_id={vid}, category={category}) — bul dawıs "
+                      f"ElevenLabs-tıń tegin jobasında islemeydi, tańlama.")
+                paid_plan_needed.append((name, vid))
+            else:
+                print(f"  [QÁTELIK] {name}: {e}")
+                other_errors.append((name, vid))
+
+    print()
+    if working:
+        print(f"ISLEP TURǴAN dawıslar ({len(working)}) — usılardıń birewin tańla:")
+        for name, vid in working:
+            print(f"  {name}  ->  ELEVEN_VOICE_ID={vid}")
+    else:
+        print("Hesh bir dawıs islemedi — barlıǵı 'akılı joba kerek' yamasa qátelik berdi.")
+    if paid_plan_needed:
+        print(f"\n(Akılı joba kerek bolǵanı ushın ótkerilgen dawıslar: {len(paid_plan_needed)} — "
+              f"bularǵa .mp3 jasalmadı, tańlaw múmkin emes.)")
 
     print(f"\n'{out_dir}' papkasındaǵı .mp3 fayllardı ashıp tıńla (er qaysısın basıp).")
     print("Eń unaǵanın tańlap, onıń voice_id-in .env faylına usılay jaz:")
