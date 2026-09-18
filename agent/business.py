@@ -27,12 +27,28 @@ append_to_list_field() KELESI fazada qosıladı — bul jerde tek BELGI),
 description (bir gápte túsindirme). Eski (LEGACY) maydan atları
 LEGACY_FIELD_ALIASES arqalı jańa atlarǵa avtomat kóshiriledi, derek
 JOǴALMAYDI.
+
+NUMERIC TÚRI (3-faza, BUSINESS DECISION ENGINE 1-basqıshı): finance/sales
+bólimindegi bir qansha maydan (revenue, cost, gross_margin, fixed_costs,
+cash_flow, monthly_sales, average_check, average_monthly_customers) endi
+type="numeric". Bunday maydan ushın set_field() TOLIQ ÓZGERISSIZ qaladı
+(eski, tekst jazba jolı — remember tool hám tools.py házirshe sonı
+qollanadı, bul jumıs bузılmaydı). Struktура sandı jazıw ushın ARNAWLI,
+qosımsha funktsiya bar — set_numeric_field(memory_dir, business_name,
+field_key, value, unit) — {"value": <san>, "unit": <ólshem birligi>,
+"updated_at": ...} formatında saqlaydı. Ólshem birligi NUMERIC_UNITS
+dizimimen sheklengen (UZS, USD, KZT, percent, count) yamasa "unknown"
+(belgisiz bolsa, ashıq usılay belgilenedi — hesh qashan ózinen oylap
+tabılmaydı, "silently convert" islenbeydi). set_numeric_field ele
+tools.py/remember-ge jalǵanbaǵan (bul — KELESI faza, Calculation Tool
+menen birge).
 """
 
 from __future__ import annotations
 
 import datetime as _dt
 import json
+import math
 import os
 import re
 from pathlib import Path
@@ -88,15 +104,15 @@ FIELD_SCHEMA = {
                 "type": "list",
                 "description": "Bar klientler QALAY bólinip qaraladı — segmentatsiya (mısalı: jańa/turaqlı, úlken/kishi buyırtpa)",
             },
-            "average_monthly_customers": {"label": "Aylıq ortasha klient sanı", "type": "scalar", "description": "Bir ayda ortasha neshe klient"},
+            "average_monthly_customers": {"label": "Aylıq ortasha klient sanı", "type": "numeric", "description": "Bir ayda ortasha neshe klient"},
             "repeat_customers": {"label": "Qayta kelgen klientler", "type": "scalar", "description": "Qayta buyırtpa beretuǵın klientler dárejesi"},
         },
     },
     "sales": {
         "label": "Sawda",
         "fields": {
-            "monthly_sales": {"label": "Aylıq sawda", "type": "scalar", "description": "Bir aydaǵı jalpı sawda summası"},
-            "average_check": {"label": "Ortasha chek", "type": "scalar", "description": "Bir satıwdıń ortasha qunı"},
+            "monthly_sales": {"label": "Aylıq sawda", "type": "numeric", "description": "Bir aydaǵı jalpı sawda summası"},
+            "average_check": {"label": "Ortasha chek", "type": "numeric", "description": "Bir satıwdıń ortasha qunı"},
             "channels": {"label": "Sawda kanalları", "type": "scalar", "description": "Qalay satıladı (dúkan, online, tapsırıs h.t.b.)"},
             "seasonality": {"label": "Mawsımlıq", "type": "scalar", "description": "Jıl mawsımına baylanıslı ózgeris"},
             "conversion": {"label": "Konversiya", "type": "scalar", "description": "Qızıǵıwshılardıń qansha bólegi satıp aladı"},
@@ -106,13 +122,13 @@ FIELD_SCHEMA = {
     "finance": {
         "label": "Finans",
         "fields": {
-            "revenue": {"label": "Kirim", "type": "scalar", "description": "Jalpı kirim"},
-            "cost": {"label": "Shıǵın", "type": "scalar", "description": "Jalpı shıǵın"},
-            "gross_margin": {"label": "Jalpı marja", "type": "scalar", "description": "Kirim menen tannarxı arasındaǵı parq, protsentte"},
-            "fixed_costs": {"label": "Turaqlı shıǵınlar", "type": "scalar", "description": "Hár ay tákirarlanatuǵın shıǵınlar"},
+            "revenue": {"label": "Kirim", "type": "numeric", "description": "Jalpı kirim"},
+            "cost": {"label": "Shıǵın", "type": "numeric", "description": "Jalpı shıǵın"},
+            "gross_margin": {"label": "Jalpı marja", "type": "numeric", "description": "Kirim menen tannarxı arasındaǵı parq, protsentte"},
+            "fixed_costs": {"label": "Turaqlı shıǵınlar", "type": "numeric", "description": "Hár ay tákirarlanatuǵın shıǵınlar"},
             "debts": {"label": "Qarızlar", "type": "scalar", "description": "Bank krediti, tanıslardan qarız h.t.b."},
             "investments": {"label": "Investitsiyalar", "type": "scalar", "description": "Bizneske salınǵan qosımsha aqsha"},
-            "cash_flow": {"label": "Aqsha aǵımı", "type": "scalar", "description": "Aqshanıń kiriw-shıǵıw teppesi"},
+            "cash_flow": {"label": "Aqsha aǵımı", "type": "numeric", "description": "Aqshanıń kiriw-shıǵıw teppesi"},
         },
     },
     "marketing": {
@@ -163,6 +179,14 @@ LEGACY_FIELD_ALIASES = {
     "goals.goals_1_year": "goals.one_year",
     "goals.strategic_goals": "goals.strategic",
 }
+
+# ---------------------------------------------------------------------------
+# NUMERIC maydanlar ushın ólshem birlikleri (set_numeric_field qara).
+# Bul dizimnen tıs ólshem birligi qabıl etilmeydi — ойдан bir nárse
+# oylap tabılmaydı, tanılmaǵan birlik ANIQ qátelik beredi.
+# ---------------------------------------------------------------------------
+
+NUMERIC_UNITS = {"UZS", "USD", "KZT", "percent", "count"}
 
 
 def known_field_keys() -> list:
@@ -222,16 +246,26 @@ def _business_path(memory_dir: Path, business_name: str) -> Path:
 
 
 def _merge_entry(dest: dict, incoming: dict) -> dict:
-    """Eki entry (value/updated_at/previous) kelse, jańasın (updated_at
-    úlken) "aǵımdaǵı" etip qaldıradı, eskisin "previous" retinde saqlaydı.
-    Hesh bir qıymat joǵalmaydı."""
+    """Eki entry (value/updated_at/previous, kerek bolsa unit) kelse,
+    jańasın (updated_at úlken) "aǵımdaǵı" etip qaldıradı, eskisin
+    "previous" retinde saqlaydı. Hesh bir qıymat joǵalmaydı.
+
+    "unit" — NUMERIC maydanlar ushın ǵana boladı (3-faza); scalar/list
+    entry-lerde bul kilt joq, sonıń ushın olarǵa tásir etpeydi."""
     if not dest:
         return incoming
     if not incoming:
         return dest
     newer, older = (dest, incoming) if dest.get("updated_at", "") >= incoming.get("updated_at", "") else (incoming, dest)
     merged = {"value": newer["value"], "updated_at": newer["updated_at"]}
-    prev = newer.get("previous") or {"value": older.get("value"), "updated_at": older.get("updated_at")}
+    if "unit" in newer:
+        merged["unit"] = newer["unit"]
+    if newer.get("previous"):
+        prev = newer["previous"]
+    else:
+        prev = {"value": older.get("value"), "updated_at": older.get("updated_at")}
+        if "unit" in older:
+            prev["unit"] = older["unit"]
     merged["previous"] = prev
     return merged
 
@@ -380,6 +414,103 @@ def set_field(memory_dir: Path, business_name: str, field_key: str, value: str) 
     return path
 
 
+def _coerce_numeric(value):
+    """`value`-di san (int yamasa float) etip qaytaradı. San BOLMASA
+    (parse etilmese, NaN/Infinity bolsa, bool bolsa) — ANIQ ValueError
+    shıǵaradı, hesh nárseni "sheshiwge" urınbaydı (mısalı, "100 mln som"
+    tekstinen sandı awtomat ajıratıp alıw — bul jerde EMES, tools.py/
+    model dárejesinde islenetuǵın jumıs, KELESI faza)."""
+    if isinstance(value, bool):
+        raise ValueError(f"qıymat numeric emes (bool berildi): {value!r}")
+    if isinstance(value, (int, float)):
+        num = float(value)
+    elif isinstance(value, str):
+        text = value.strip()
+        if not text:
+            raise ValueError("numeric qıymat bos boldı")
+        try:
+            num = float(text)
+        except ValueError:
+            raise ValueError(f"qıymat numeric emes: '{value}'") from None
+    else:
+        raise ValueError(f"qıymat numeric emes: {value!r}")
+
+    if not math.isfinite(num):
+        raise ValueError(f"qıymat numeric emes (shekli san emes): {value!r}")
+
+    return int(num) if num.is_integer() else num
+
+
+def set_numeric_field(memory_dir: Path, business_name: str, field_key: str, value, unit: str = None) -> Path:
+    """NUMERIC-type maydandı (revenue, cost, gross_margin, fixed_costs,
+    cash_flow, monthly_sales, average_check, average_monthly_customers)
+    struktura sandı túrde jańalaydı: {"value": <san>, "unit": <birlik>,
+    "updated_at": ...}.
+
+    `set_field()`-ten ULKEN parqı: bul funktsiya field_key-diń type-i
+    ANIQ "numeric" bolıwın talap etedi (basqasha ValueError), hám `value`
+    haqıyqıy sanǵa aylandırıla alıwı kerek (basqasha ValueError — "100
+    mln som" sıyaqlı tekst osı jerde qabıl etilmeydi, ol ele parse
+    etilmegen tekst, sandı ózi shıǵarıp alıw bul funktsiyanıń jumısı
+    EMES).
+
+    `unit` — NUMERIC_UNITS dizimindegi birew boliwı kerek (UZS, USD,
+    KZT, percent, count). Berilmese (None yamasa bos qatar) — "unknown"
+    etip saqlanadı (bul QÁTE EMES, ANIQ "belgisiz" belgisi). Al berilip,
+    biraq dizimde JOQ bolsa — ANIQ ValueError (hesh qashan "eń jaqın"
+    birlikke silently aylandırılmaydı).
+
+    Eski qıymat (san yamasa eski tekst-scalar bolsa da) joǵalmaydı —
+    "previous" retinde ({"value", "unit", "updated_at"}) saqlanadı, dál
+    set_field()-tegidey principte."""
+    if field_key not in known_field_keys():
+        raise ValueError(f"belgisiz maydan: {field_key}")
+    if field_type(field_key) != "numeric":
+        raise ValueError(
+            f"'{field_key}' NUMERIC maydan emes (type={field_type(field_key)!r}) — "
+            "set_numeric_field ushın jaramsız, set_field() qollan"
+        )
+
+    numeric_value = _coerce_numeric(value)
+
+    if unit is None:
+        unit = "unknown"
+    else:
+        if not isinstance(unit, str):
+            raise ValueError(f"ólshem birligi tekst bolıwı kerek: {unit!r}")
+        unit = unit.strip()
+        if not unit:
+            unit = "unknown"
+        elif unit not in NUMERIC_UNITS:
+            raise ValueError(
+                f"belgisiz ólshem birligi: '{unit}' — bilinetuǵınlar: "
+                f"{', '.join(sorted(NUMERIC_UNITS))} (yamasa qaldırıp 'unknown' etiw múmkin)"
+            )
+
+    path, data, now = _load_or_init(memory_dir, business_name)
+    section, _, field = field_key.partition(".")
+    section_data = data["fields"].setdefault(section, {})
+    existing = section_data.get(field)
+
+    entry = {"value": numeric_value, "unit": unit, "updated_at": now}
+    if existing:
+        existing_value = existing.get("value")
+        existing_unit = existing.get("unit", "unknown")
+        if existing_value != numeric_value or existing_unit != unit:
+            entry["previous"] = {
+                "value": existing_value,
+                "unit": existing_unit,
+                "updated_at": existing.get("updated_at"),
+            }
+        elif existing.get("previous"):
+            entry["previous"] = existing["previous"]
+
+    section_data[field] = entry
+    data["updated_at"] = now
+    _atomic_write(path, data)
+    return path
+
+
 def _dedupe_preserve_order(values) -> list:
     """Dublikatlardı alıp taslaydı (kaa.casefold + strip — MINIMAL
     normalizatsiya, tek qásiyetsiz parıqlar ushın), birinshi ushırasqan
@@ -494,7 +625,13 @@ def format_business_summary(data: dict, max_notes: int = 5) -> str:
             if not entry:
                 continue
             raw_value = entry.get("value")
-            shown = "; ".join(raw_value) if isinstance(raw_value, list) else raw_value
+            if isinstance(raw_value, list):
+                shown = "; ".join(raw_value)
+            elif "unit" in entry:
+                unit = entry.get("unit") or "unknown"
+                shown = f"{raw_value} ({unit})" if unit != "unknown" else f"{raw_value} (ólshem birligi belgisiz)"
+            else:
+                shown = raw_value
             lines.append(f"- {field_meta['label']}: {shown} (jańalanǵan: {entry.get('updated_at', '?')[:10]})")
 
     notes = data.get("notes") or []
