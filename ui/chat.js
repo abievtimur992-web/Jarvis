@@ -9,6 +9,41 @@
 (function () {
   "use strict";
 
+  // Business Decision Engine kártalarında (compute_finance, diagnose_business)
+  // qaytatın "bólim.maydan" kilitleri hám operatsiya atları — business.py
+  // FIELD_SCHEMA-dıń hám tools.py-dıń _FINANCE_OPERATIONS-tıń labellerin
+  // qaytaladı (backend-ke API arqalı barmaw ushın, tek kórsetiw ushın).
+  var FIELD_LABELS = {
+    "finance.revenue": "Kirim",
+    "finance.cost": "Shıǵın",
+    "finance.gross_margin": "Jalpı marja",
+    "finance.fixed_costs": "Turaqlı shıǵınlar",
+    "finance.cash_flow": "Aqsha aǵımı",
+    "sales.monthly_sales": "Aylıq sawda",
+    "sales.average_check": "Ortasha chek",
+    "customers.average_monthly_customers": "Aylıq ortasha klient sanı",
+  };
+  var FINANCE_OP_LABELS = {
+    gross_profit: "Jalpı payda",
+    margin: "Marja",
+    average_check: "Ortasha chek",
+    growth_percent: "Ósiw",
+    cash_flow_net: "Aqsha aǵımı (net)",
+  };
+  var DATA_QUALITY_LABELS = { full: "tolıq", partial: "jarım-jartı", empty: "joq" };
+
+  function fieldLabel(key) {
+    return FIELD_LABELS[key] || key;
+  }
+
+  function formatFinanceValue(value, unit) {
+    if (value === undefined || value === null) return "?";
+    var num = typeof value === "number" ? value.toLocaleString("ru-RU") : value;
+    if (unit === "percent") return num + "%";
+    if (!unit || unit === "count" || unit === "unknown") return String(num);
+    return num + " " + unit;
+  }
+
   function cardBodyFromTool(card) {
     if (!card) return "";
     if (card.tool === "search_brain") {
@@ -38,6 +73,58 @@
       const notes = (card.recent_notes || []).map((n) => "• " + n.title).join("\n");
       const mem = (card.recent_memory || []).map((m) => "• " + m.file).join("\n");
       return ["Jańa jazbalar:", notes || "(joq)", "", "Yad:", mem || "(joq)"].join("\n");
+    }
+    if (card.tool === "compute_finance") {
+      if (card.error) return "Esaplay almadım: " + card.error;
+      const opLabel = FINANCE_OP_LABELS[card.operation] || card.operation;
+      const result = card.result || {};
+      const lines = [opLabel + ": " + formatFinanceValue(result.value, result.unit)];
+      if (card.formula) lines.push("Formula: " + card.formula);
+      return lines.join("\n");
+    }
+    if (card.tool === "diagnose_business") {
+      if (card.error) return "Diagnostika ótkerilmedi: " + card.error;
+      const verified = card.verified_data || {};
+      const missing = card.missing_fields || [];
+      const calculations = card.calculations || {};
+      const gaps = card.calculation_gaps || [];
+      const quality = DATA_QUALITY_LABELS[card.data_quality] || card.data_quality || "?";
+      const lines = [card.business + " — derek sapası: " + quality + " (bar: " + Object.keys(verified).length + ", joq: " + missing.length + ")"];
+
+      const verifiedKeys = Object.keys(verified);
+      if (verifiedKeys.length) {
+        lines.push("", "Bar maydanlar:");
+        verifiedKeys.forEach((key) => {
+          const entry = verified[key];
+          lines.push("• " + fieldLabel(key) + ": " + formatFinanceValue(entry.value, entry.unit));
+        });
+      }
+
+      const calcKeys = Object.keys(calculations).filter((k) => k !== "growth_percent");
+      if (calcKeys.length || calculations.growth_percent) {
+        lines.push("", "Esaplar:");
+        calcKeys.forEach((k) => {
+          const res = calculations[k];
+          lines.push("• " + (FINANCE_OP_LABELS[k] || k) + ": " + formatFinanceValue(res.value, res.unit));
+        });
+        if (calculations.growth_percent) {
+          Object.keys(calculations.growth_percent).forEach((fk) => {
+            const res = calculations.growth_percent[fk];
+            lines.push("• " + fieldLabel(fk) + " ósiwi: " + formatFinanceValue(res.value, res.unit));
+          });
+        }
+      }
+
+      if (missing.length) {
+        lines.push("", "Jetispeytuǵın maydanlar:", missing.map(fieldLabel).join(", "));
+      }
+      if (gaps.length) {
+        lines.push("", "Esaplanbaǵan operatsiyalar:");
+        gaps.forEach((g) => {
+          lines.push("• " + (FINANCE_OP_LABELS[g.calculation] || g.calculation) + ": " + g.reason);
+        });
+      }
+      return lines.join("\n");
     }
     return JSON.stringify(card, null, 2);
   }
