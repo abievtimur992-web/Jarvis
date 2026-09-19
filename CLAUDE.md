@@ -46,6 +46,21 @@ Telegram (islep tur), Instagram (ele baslanbaǵan), Excel (turaqlı), Money
 Management programması (finans esabatı ushın jaqsı islep tur), Notion
 (maqset qoyıw ushın). AI qurallardı úyrenip atır.
 
+## Úlken ómirlik maqsetler (strategiyalıq, uzaq múddetli)
+1. Finanslıq erkinlikke erisiw.
+2. Qarızlardı azaytıw hám tolıq jabıw.
+3. Aylıq dáramattı uzaq múddette 10 000 dollarǵa jetkeriw.
+4. Ózi qatnaspay-aq isleytuǵın sistemalı biznes dúziw.
+5. Shańaraqtıń turaqlılıǵın hám rawajlanıwın támiyinlew.
+6. Densawlıǵın hám energiyasın jaqsılaw.
+7. Biznes, finans, basqarıw hám kommunikatsiya tarawlarında kásiplik
+   dárejesin asırıw.
+8. Jeke rawajlanıwın sistemalı túrde alıp barıw.
+
+Bul maqsetler "úlken maqset → 3 jıl → 1 jıl → 90 kún → ay → hápte → búgin
+→ házir" dep bólshekke bólinedi — tómendegi "Keyingi 3 aylıq maqsetler"
+bul úlken maqsetlerdiń házirgi 90-kúnlik basqıshı.
+
 ## Keyingi 3 aylıq maqsetler
 1. Úsh brendtiń rawajlanıw strategiyasın islep shıǵıw.
 2. Finanstı basqarıw hám qarızlardan shıǵıw.
