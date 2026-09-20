@@ -30,6 +30,39 @@ import vault as vault_mod
 # ---------------------------------------------------------------------------
 
 
+_EXCERPT_FALLBACK_CHARS = 1500  # soraw sózi tabılmasa, jazbanıń basınan alınatuǵın úzindi ólshemi
+_EXCERPT_WINDOW_CHARS = 1200  # soraw sózi tabılǵan jerdiń aldı-artınan alınatuǵın úzindi ólshemi
+
+
+def _excerpt_for_query(text: str, query: str) -> str:
+    """Úlken jazbalarda (mısalı, PDF-den shıqqan kóp betlik strategiya)
+    jazbanıń EŃ BASI kóbinese tek atawı hám mazmun dizimi (Contents)
+    boladı — soraw sózi (mısalı, biznes atı) kóbinese sonda da ushırasadı,
+    biraq bul model ushın paydasız. Sonıń ushın ALDIN dáslepki ~500
+    háripten KEYINGI jerden soraw sózin izleymiz (nızıq mazmun kóbinese
+    sonda baslanadı), tabılmasa — pútkil tekstten, ol da tabılmasa —
+    jazbanıń basınan alamız (eski, qáwipsiz jol)."""
+
+    def _find_earliest(haystack: str, offset: int) -> int:
+        best_pos = -1
+        for word in query.lower().split():
+            if len(word) < 3:
+                continue
+            pos = haystack.find(word, offset)
+            if pos != -1 and (best_pos == -1 or pos < best_pos):
+                best_pos = pos
+        return best_pos
+
+    lowered = text.lower()
+    pos = _find_earliest(lowered, _EXCERPT_FALLBACK_CHARS)
+    if pos == -1:
+        pos = _find_earliest(lowered, 0)
+    if pos == -1:
+        return text[:_EXCERPT_FALLBACK_CHARS]
+    start = max(0, pos - 200)
+    return text[start : start + _EXCERPT_WINDOW_CHARS]
+
+
 def search_brain(v: vault_mod.Vault, query: str, memory_dir: Path) -> dict:
     results = vault_mod.search(v, query, limit=5)
 
@@ -67,7 +100,7 @@ def search_brain(v: vault_mod.Vault, query: str, memory_dir: Path) -> dict:
                     "title": n.title,
                     "type": n.note_type,
                     "path": n.rel_path,
-                    "excerpt": n.text[:500],
+                    "excerpt": _excerpt_for_query(n.text, query),
                 }
                 for n, _ in results
             ],
