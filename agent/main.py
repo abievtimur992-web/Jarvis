@@ -129,10 +129,10 @@ NETWORK_RETRIES = 3  # WinError 10054 sıyaqlı ótkinshi tarmaq úzilisleri ush
 
 
 def _urlopen_retrying(req: urllib.request.Request, timeout: float):
-    """urlopen, biraq ótkinshi tarmaq qátesinde (URLError) 2 ret qайта sınайды.
+    """urlopen, biraq ótkinshi tarmaq qátesinde (URLError) 2 ret qayta sınaydı.
 
-    HTTPError (server 4xx/5xx penen juwap berdi) qайта sınalmaydı — bul
-    haqıyqıy API qátesi, qайта jiberiw jәрдem бермейди."""
+    HTTPError (server 4xx/5xx penen juwap berdi) qayta sınalmaydı — bul
+    haqıyqıy API qátesi, qayta jiberiw járdem bermeydi."""
     last_err: urllib.error.URLError | None = None
     for attempt in range(NETWORK_RETRIES):
         try:
@@ -185,7 +185,7 @@ def _is_turn_start(message: dict) -> bool:
 def _trim_history() -> None:
     """Sońǵı ~MAX_HISTORY_TURNS gezekti qaldıradı, biraq kesiw noqatı
     hámishe HAQIYQIY gezek basına tuwrı keliwi kerek — bolmasa qalǵan
-    tarıйх tool_use/tool_result jubınıń biri joq halda qaladı, sonda
+    tarıyx tool_use/tool_result jubınıń biri joq halda qaladı, sonda
     Anthropic API 400 qátesin qaytaradı ("tool_use_id ... found in
     tool_result ... no corresponding tool_use")."""
     max_messages = MAX_HISTORY_TURNS * 2
@@ -203,10 +203,10 @@ _TOOLS_WITH_CACHE = None
 def _tools_for_api() -> list:
     """TOOL_DEFINITIONS, aqırǵı tool-ge cache_control belgisi qosılğan halda.
 
-    system_promptты da, tool sıpatlamaларын да hár shaqırыуda qайта-qайта
-    tolıq islewdiń ornına, Anthropic bul eki blоktı (tools + system)
+    system_promptti da, tool sıpatlamaların da hár shaqırıwda qayta-qayta
+    tolıq islewdiń ornına, Anthropic bul eki bloktı (tools + system)
     keshi (cache) etip saqlaydı — bul, ásirese bir gezek ishinde tool
-    kerek болғанда болатuğын eкinshi shaqырыуды tezлетеди."""
+    kerek bolğanda bolatuğın ekinshi shaqırıwdı tezletedi."""
     global _TOOLS_WITH_CACHE
     if _TOOLS_WITH_CACHE is None:
         tools = [dict(t) for t in tools_mod.TOOL_DEFINITIONS]
@@ -247,7 +247,7 @@ def run_conversation_turn(user_text: str) -> dict:
 
     Gezek ortasında (mısalı, tool ishinde qátelik shıqsa yamasa Anthropic
     HTTPError qaytarsa) qátelik shıqsa, usı gezekte _CONVERSATION-ǵa
-    qosılǵannıń ХАММЕSI biykarlanadı (rollback). Bolmasa, jarım-jasar
+    qosılǵannıń HÁMMESI biykarlanadı (rollback). Bolmasa, jarım-jasar
     qalǵan tool_use/tool_result jubı _CONVERSATION-da MÁNGI qalıp,
     KELESI hár bir gezekte de sonı Anthropic-qa jiberip, hámishe sol 400
     qátesin qaytara beredi — server qayta iske túsirilgenshe."""
@@ -294,13 +294,20 @@ def _run_conversation_turn_inner(user_text: str) -> dict:
             t_tool = time.perf_counter()
             result = tools_mod.run_tool(name, tool_input, ctx)
             print(f"[waqit] tool {name}: {time.perf_counter() - t_tool:.2f}s")
-            last_card = result.get("card")
+            card = result.get("card") or {}
+            last_card = card
             tool_log.append({"name": name, "input": tool_input})
+            # "spoken" — tek qısqa dawıs juwmaǵı, ekranǵa/modelge tolıq derek
+            # emes. Model NAQTI faktlerdi (excerpt, verified_data h.t.b.)
+            # kóriw ushın, "card"-tiń tolıq mazmunı da qosıladı — bolmasa
+            # model tabılǵan derekti "oqıy" almaydı, tek sanın biledi.
+            spoken = result.get("spoken", "")
+            card_json = json.dumps(card, ensure_ascii=False)
             tool_result_blocks.append(
                 {
                     "type": "tool_result",
                     "tool_use_id": tu.get("id"),
-                    "content": result.get("spoken", ""),
+                    "content": f"{spoken}\n\n{card_json}" if spoken else card_json,
                 }
             )
         _CONVERSATION.append({"role": "user", "content": tool_result_blocks})
