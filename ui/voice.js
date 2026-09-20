@@ -15,7 +15,7 @@
   const SILENCE_MS = 900; // sóylep bolǵannan keyingi usınsha úndemewden soń gezek juwmaqlanadı
   const SILENCE_THRESHOLD = 0.02; // dawıs deńgeyi bunnan tómen — "úndemew"
   const LEVEL_POLL_MS = 80; // audio-deńgey tekseriw aralıǵı
-  const SPEECH_TIMEOUT_MS = 12000; // sóylew basланбаса, mikrofon usınsha waqıttan keyin ózi jabıladı
+  const SPEECH_TIMEOUT_MS = 12000; // sóylew baslanbasa, mikrofon usınsha waqıttan keyin ózi jabıladı
 
   const state = {
     mic: null,
@@ -77,8 +77,10 @@
         const body = await res.json().catch(() => ({}));
         const reason = body.error || ("HTTP " + res.status);
         console.warn("Dawıs joq:", reason);
-        if (window.JarvisShowAnswer) window.JarvisShowAnswer("DAWIS JOQ", "Sóylew islemedi.", reason);
-        setReactor(null, "Tayar");
+        // speak() hámishe chat.js-tiń JarvisShowAnswer(...) nátiyjege JAZǴANINAN
+        // KEYIN shaqırıladı — sonı "DAWIS JOQ" penen almastırıw eki jazba juwaptı
+        // jasıradı. Sonıń ushın tek reactor-labelda kórsetemiz, kártanı tiymeymiz.
+        setReactor(null, "Dawıs islemedi (juwap ekranda)");
         return;
       }
       const blob = await res.blob();
@@ -91,14 +93,11 @@
       });
       audio.play().catch((e) => {
         console.error("audio.play qátesi:", e);
-        if (window.JarvisShowAnswer)
-          window.JarvisShowAnswer("DAWIS JOQ", "Brauzer dawıstı oynatpadı.", String((e && e.message) || e));
-        setReactor(null, "Tayar");
+        setReactor(null, "Dawıs islemedi (juwap ekranda)");
       });
     } catch (e) {
       console.error("speak qátesi:", e);
-      if (window.JarvisShowAnswer) window.JarvisShowAnswer("DAWIS JOQ", "Sóylew islemedi.", String((e && e.message) || e));
-      setReactor(null, "Tayar");
+      setReactor(null, "Dawıs islemedi (juwap ekranda)");
     }
   }
 
