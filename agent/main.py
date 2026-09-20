@@ -182,6 +182,30 @@ def _is_turn_start(message: dict) -> bool:
     return True
 
 
+_THINKING_BLOCK_TYPES = {"thinking", "redacted_thinking"}
+
+
+def _strip_thinking_blocks(start_index: int) -> None:
+    """Sonnet 5 sorlemese de ózi "thinking" bloklarin qosadı — bul bloklar
+    bir gezek ishinde (tool orkestraciyası ushın) ANIQ ózgerissiz qaytarılıwı
+    kerek, bolmasa Anthropic API "bul blok ózgertilgen" dep 400 qátelik
+    qaytaradı. Gezek juwmaqlanıp, _CONVERSATION-ǵa "tarıyx" retinde qalǵanda,
+    _trim_history() keyinirek eski xabarlardı óshiriwi múmkin — bul da sol
+    talaptı buzıp, KEYINGI gezekte sol qátelikti tuwdıradı. Sonıń ushın gezek
+    juwmaqlanǵanda thinking bloklardı alıp taslaymız (bul — Anthropic-tiń
+    óziniń qollaǵan qáwipsiz operatsiyası, "óshiriw" hesh qashan "ózgertiw"
+    sıyaqlı qátelik bermeydi)."""
+    for message in _CONVERSATION[start_index:]:
+        if message.get("role") != "assistant":
+            continue
+        content = message.get("content")
+        if not isinstance(content, list):
+            continue
+        message["content"] = [
+            b for b in content if not (isinstance(b, dict) and b.get("type") in _THINKING_BLOCK_TYPES)
+        ]
+
+
 def _trim_history() -> None:
     """Sońǵı ~MAX_HISTORY_TURNS gezekti qaldıradı, biraq kesiw noqatı
     hámishe HAQIYQIY gezek basına tuwrı keliwi kerek — bolmasa qalǵan
@@ -266,6 +290,7 @@ def _run_conversation_turn_inner(user_text: str) -> dict:
         "memory_dir": data_mod.memory_dir(),
     }
 
+    turn_start = len(_CONVERSATION)
     _CONVERSATION.append({"role": "user", "content": user_text})
     system_prompt = _load_system_prompt()
     last_card = None
@@ -283,6 +308,7 @@ def _run_conversation_turn_inner(user_text: str) -> dict:
         if not tool_uses:
             text_parts = [b.get("text", "") for b in content_blocks if b.get("type") == "text"]
             final_text = "\n".join(t for t in text_parts if t).strip()
+            _strip_thinking_blocks(turn_start)
             _trim_history()
             print(f"[waqit] gezek jámi: {time.perf_counter() - turn_started:.2f}s")
             return {"reply": final_text, "card": last_card, "tool_log": tool_log}
@@ -312,6 +338,7 @@ def _run_conversation_turn_inner(user_text: str) -> dict:
             )
         _CONVERSATION.append({"role": "user", "content": tool_result_blocks})
 
+    _strip_thinking_blocks(turn_start)
     _trim_history()
     print(f"[waqit] gezek jámi (shek asıldı): {time.perf_counter() - turn_started:.2f}s")
     return {
