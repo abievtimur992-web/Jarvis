@@ -264,6 +264,13 @@ islewdiń keregi joq — pútkil juwabıń bir abzat bolıp qala beredi.
   aqsha aǵımı) usını shaqır — nátiyjesin Sheshim dvigateli-diń 2-3-bólimin
   toltırıw ushın qollan, sonnan keyin ǵana (4-6-bólim) ÓZIŃ sebep/variant/
   usınıs jaz.
+- **instagram_insights** — Instagram Business hesabınıń házirgi statistikasın
+  (jazılıwshı sanı, post sanı) hám aqırǵı 5 posttıń layk/komment sanların
+  Meta Graph API arqalı TIKKELEY oqıp beredi. Tek oqıydı — post jazbaydı,
+  jibermeydi, ózgertpeydi. Baylanıs .env-de sazlanbaǵan bolsa yamasa API
+  qátelik berse, tool ANIQ solay aitadı — sen bul sandardı hesh qashan
+  ózıńnen oylap tappaysań. Instagram-nıń jaǵdayı soralǵanda (jazılıwshı
+  qansha, aqırǵı post qalay ótti) usını shaqır.
 
 Tool-di tek nızıq maǵlıwmat (fakt, jazba, este saqlaw, kún jobası) kerek
 bolǵanda shaqır. Analiz/sheshim/pikir sorasa hám ol financial/numeric

@@ -20,6 +20,7 @@ import urllib.request
 from pathlib import Path
 
 import business as business_mod
+import instagram as instagram_mod
 import kaa
 import memory as memory_mod
 import vault as vault_mod
@@ -362,7 +363,7 @@ def brief_me(v: vault_mod.Vault, memory_dir: Path) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# 6) compute_finance — sақланған numeric sandardan taza arifметikalıq esap
+# 6) compute_finance — saqlanǵan numeric sandardan taza arifmetikalıq esap
 # ---------------------------------------------------------------------------
 #
 # BUSINESS DECISION ENGINE — 2-basqısh. Bul tool HESH BIR derekti ÓZI
@@ -469,8 +470,8 @@ def _finance_ok(operation: str, used_inputs: dict, result, unit: str, formula: s
 
 
 def compute_finance(operation: str, inputs: dict) -> dict:
-    """Sақланған numeric business data-dan (model ALDIN search_brain penen
-    tapqan sandardan) taza arifметикалық esap shıǵaradı. Fayl oqımaydı/
+    """Saqlanǵan numeric business data-dan (model ALDIN search_brain penen
+    tapqan sandardan) taza arifmetikalıq esap shıǵaradı. Fayl oqımaydı/
     jazbaydı, API shaqırmaydı — TEK esaplaw (deterministic)."""
     operation = (operation or "").strip()
     if operation not in _FINANCE_OPERATIONS:
@@ -743,6 +744,43 @@ def diagnose_business(memory_dir: Path, business: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# 8) instagram_insights — Instagram Business hesabınıń nızıq statistikası
+# ---------------------------------------------------------------------------
+#
+# READ-ONLY: Instagram-nan tek OQIYDI (Graph API GET), hesh nárse jazbaydı/
+# postlamaydı (qatań qaǵıyda №1). Baylanıs sazlanbaǵan bolsa yamasa API
+# qátelik berse, ANIQ solay aitadı — hesh qashan san oylap tappaydı.
+
+
+def instagram_insights() -> dict:
+    """Instagram Business hesabınıń házirgi statistikaların (jazılıwshı hám
+    post sanı) hám aqırǵı postlardıń like/komment sanların Graph API arqalı
+    oqıp qaytaradı. Baylanıs sazlanbaǵan bolsa, sonı ANIQ aitadı."""
+    if not instagram_mod.is_configured():
+        return {
+            "spoken": "Instagram baylanısı ele sazlanbaǵan — .env faylında INSTAGRAM_ACCESS_TOKEN joq.",
+            "card": {"tool": "instagram_insights", "error": "sazlanbaǵan"},
+        }
+    try:
+        summary = instagram_mod.account_summary()
+        media = instagram_mod.recent_media(limit=5)
+    except instagram_mod.InstagramError as e:
+        return {
+            "spoken": f"Instagram-nan maǵlıwmat alıp bolmadım: {e}",
+            "card": {"tool": "instagram_insights", "error": str(e)},
+        }
+
+    spoken = (
+        f"Instagram: @{summary.get('username')} — {summary.get('followers_count')} "
+        f"jazılıwshı, {summary.get('media_count')} post. Aqırǵı {len(media)} post tabıldı."
+    )
+    return {
+        "spoken": spoken,
+        "card": {"tool": "instagram_insights", "account": summary, "recent_media": media},
+    }
+
+
+# ---------------------------------------------------------------------------
 # Anthropic tool-schema-ları hám dispetcher
 # ---------------------------------------------------------------------------
 
@@ -866,8 +904,8 @@ TOOL_DEFINITIONS = [
     {
         "name": "compute_finance",
         "description": (
-            "Sақланған numeric biznes sandardan (revenue, cost, customers h.t.b.) TAZA "
-            "arifметикалық esap shıǵarıw — gross_profit, margin, average_check, "
+            "Saqlanǵan numeric biznes sandardan (revenue, cost, customers h.t.b.) TAZA "
+            "arifmetikalıq esap shıǵarıw — gross_profit, margin, average_check, "
             "growth_percent, cash_flow_net. Bul tool HESH BIR derekti ÓZI IZLEMEYDI — "
             "kerekli sandardı ALDIN search_brain penen (yamasa sáwbette iye aytqan "
             "naqtı sannan) tabıw SHART, sonnan keyin GHANA usı tool-ge sol NAQ sandı, "
@@ -923,7 +961,7 @@ TOOL_DEFINITIONS = [
             "average_check, growth_percent, cash_flow_net) AVTOMAT orınlaydı, hám "
             "jetispeytuǵın maǵlıwmattı ANIQ kórsetedi. Bul tool SHESHIM QABILLAMAYDI "
             "— 'eń jaqsı'/'eń jaman' demeydi, sebep izlemeydi, usınıs bermeydi. Tek "
-            "úsh nárse qaytaradı: verified_data (naq sақланған sandar), calculations "
+            "úsh nárse qaytaradı: verified_data (naq saqlanǵan sandar), calculations "
             "(orınlanǵan esaplar), missing_fields hám calculation_gaps (ne "
             "jetispeytuǵını ANIQ). Aqırǵı túsindirme/usınıstı SEN ózıń (Sheshim "
             "dvigateli arqalı) jasaysań, usı tool-diń nátiyjesin tiykar etip.\n\n"
@@ -942,6 +980,19 @@ TOOL_DEFINITIONS = [
             },
             "required": ["business"],
         },
+    },
+    {
+        "name": "instagram_insights",
+        "description": (
+            "Instagram Business hesabınıń házirgi statistikasın (jazılıwshı sanı, "
+            "post sanı) hám aqırǵı 5 posttıń like/komment sanların Meta Graph API "
+            "arqalı OQIP beredi. Tek oqıydı — post jazbaydı, jibermeydi, ózgertpeydi. "
+            "Instagram baylanısı .env-de sazlanbaǵan bolsa yamasa API qátelik berse, "
+            "ANIQ solay aitadı — hesh qashan san oylap tappaydı. Instagram-nıń "
+            "jaǵdayı/statistikası soralǵanda (jazılıwshı qansha, aqırǵı post qalay "
+            "ótti) usını shaqır."
+        ),
+        "input_schema": {"type": "object", "properties": {}},
     },
 ]
 
@@ -980,6 +1031,8 @@ def run_tool(name: str, tool_input: dict, ctx: dict) -> dict:
         # tool-ge hesh qashan jetpeydi (design-spec №6: profile/answers.json
         # hesh qashan "haqıyqıı financial data" retinde aralaspaydı).
         return diagnose_business(memory_dir, tool_input.get("business", ""))
+    if name == "instagram_insights":
+        return instagram_insights()
 
     return {
         "spoken": f"Bunday qural joq: {name}.",

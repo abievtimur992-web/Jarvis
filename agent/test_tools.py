@@ -461,11 +461,20 @@ class TestRememberNumericValidation(RememberNumericTestCase):
 
 
 class TestToolDefinitionsRegression(unittest.TestCase):
-    def test_all_seven_tools_registered(self):
+    def test_all_eight_tools_registered(self):
         names = [t["name"] for t in tools.TOOL_DEFINITIONS]
         self.assertEqual(
             names,
-            ["search_brain", "research_web", "remember", "plan_day", "brief_me", "compute_finance", "diagnose_business"],
+            [
+                "search_brain",
+                "research_web",
+                "remember",
+                "plan_day",
+                "brief_me",
+                "compute_finance",
+                "diagnose_business",
+                "instagram_insights",
+            ],
         )
 
     def test_existing_five_tool_schemas_untouched_shape(self):
@@ -500,6 +509,50 @@ class TestToolDefinitionsRegression(unittest.TestCase):
         props = by_name["diagnose_business"]["input_schema"]["properties"]
         self.assertEqual(set(props.keys()), {"business"})
         self.assertEqual(by_name["diagnose_business"]["input_schema"]["required"], ["business"])
+
+    def test_instagram_insights_registered_no_input(self):
+        by_name = {t["name"]: t for t in tools.TOOL_DEFINITIONS}
+        self.assertIn("instagram_insights", by_name)
+        self.assertEqual(by_name["instagram_insights"]["input_schema"]["properties"], {})
+
+
+# ---------------------------------------------------------------------------
+# instagram_insights — .env sazlanbaǵanda hesh nárse oylap tappaydı
+# ---------------------------------------------------------------------------
+
+
+class InstagramInsightsTestCase(unittest.TestCase):
+    def setUp(self):
+        self._saved = {
+            k: os.environ.pop(k, None)
+            for k in ("INSTAGRAM_ACCESS_TOKEN", "INSTAGRAM_BUSINESS_ACCOUNT_ID")
+        }
+
+    def tearDown(self):
+        for k, v in self._saved.items():
+            if v is not None:
+                os.environ[k] = v
+            else:
+                os.environ.pop(k, None)
+
+    def test_not_configured_reports_clearly_no_crash(self):
+        result = tools.instagram_insights()
+        self.assertEqual(result["card"]["tool"], "instagram_insights")
+        self.assertEqual(result["card"]["error"], "sazlanbaǵan")
+        self.assertIn("sazlanbaǵan", result["spoken"])
+
+    def test_missing_only_business_account_id_still_not_configured(self):
+        os.environ["INSTAGRAM_ACCESS_TOKEN"] = "sınaw-token"
+        result = tools.instagram_insights()
+        self.assertEqual(result["card"]["error"], "sazlanbaǵan")
+
+    def test_run_tool_dispatcher_wires_instagram_insights(self):
+        ctx = {"vault": None, "profile": {}, "memory_dir": Path(tempfile.mkdtemp())}
+        try:
+            result = tools.run_tool("instagram_insights", {}, ctx)
+            self.assertEqual(result["card"]["tool"], "instagram_insights")
+        finally:
+            shutil.rmtree(ctx["memory_dir"], ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------
@@ -700,7 +753,7 @@ class TestDiagnoseZeroInvalidValue(DiagnoseBusinessTestCase):
         self.assertIn("finance.revenue", result["card"]["missing_fields"])
 
 
-# I/J. demo/real mode — diagnose_business memory_dir-ди basqa tool-lar
+# I/J. demo/real mode — diagnose_business memory_dir-di basqa tool-lar
 # menen BIRDEY aladı, ózinshe jańa demo-ajıratıw jasamaydı.
 class TestDiagnoseDemoRealModePassthrough(unittest.TestCase):
     def setUp(self):

@@ -126,6 +126,22 @@
       }
       return lines.join("\n");
     }
+    if (card.tool === "instagram_insights") {
+      if (card.error) return "Instagram: " + card.error;
+      const account = card.account || {};
+      const media = card.recent_media || [];
+      const lines = [
+        "@" + (account.username || "?") + " — " + (account.followers_count ?? "?") + " jazılıwshı, " + (account.media_count ?? "?") + " post",
+      ];
+      if (media.length) {
+        lines.push("", "Aqırǵı postlar:");
+        media.forEach((m) => {
+          const when = m.timestamp ? m.timestamp.slice(0, 10) : "?";
+          lines.push("• " + when + " — " + (m.like_count ?? "?") + " layk, " + (m.comments_count ?? "?") + " komment" + (m.caption ? " — " + m.caption : ""));
+        });
+      }
+      return lines.join("\n");
+    }
     return JSON.stringify(card, null, 2);
   }
 
