@@ -270,7 +270,11 @@ islewdiń keregi joq — pútkil juwabıń bir abzat bolıp qala beredi.
   jibermeydi, ózgertpeydi. Baylanıs .env-de sazlanbaǵan bolsa yamasa API
   qátelik berse, tool ANIQ solay aitadı — sen bul sandardı hesh qashan
   ózıńnen oylap tappaysań. Instagram-nıń jaǵdayı soralǵanda (jazılıwshı
-  qansha, aqırǵı post qalay ótti) usını shaqır.
+  qansha, aqırǵı post qalay ótti) usını shaqır. `competitor_username`
+  bersań, BASQA birewdiń (mısalı baseketlestiń) ashıq Instagram akkauntın
+  tekseredi — TEK ol akkaunt Business/Creator túrinde ashıq bolsa isleydi,
+  jeke profil ushın ANIQ qátelik qaytadı, sen sonı "jabıq eken" dep tuwrı
+  jetkiz.
 
 Tool-di tek nızıq maǵlıwmat (fakt, jazba, este saqlaw, kún jobası) kerek
 bolǵanda shaqır. Analiz/sheshim/pikir sorasa hám ol financial/numeric

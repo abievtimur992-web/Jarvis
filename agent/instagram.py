@@ -116,3 +116,47 @@ def recent_media(limit: int = 5) -> list:
             }
         )
     return items
+
+
+def business_discovery(username: str) -> dict:
+    """Basqa (kompetitor) Instagram Business/Creator hesabınıń ashıq
+    (public) statistikasın "Business Discovery" arqalı oqıydı. Tek public
+    Business/Creator hesaplar ushın isleydi — jeke (personal) profil
+    ushın Graph API ANIQ qátelik qaytaradı, bul funktsiya sonı oylap
+    tappaydı, TIKKELEY sol qátelikti kóteredi."""
+    account_id = _business_account_id()
+    fields = (
+        f"business_discovery.username({username})"
+        "{username,name,followers_count,media_count,biography,"
+        "media.limit(5){id,caption,like_count,comments_count,timestamp,media_type,permalink}}"
+    )
+    data = _get(account_id, {"fields": fields})
+    discovery = data.get("business_discovery")
+    if not discovery:
+        raise InstagramError(
+            f"'{username}' ushın maǵlıwmat tabılmadı — bul akkaunt Business/Creator "
+            "túrinde emes yamasa atı qáte boliwı mumkin."
+        )
+
+    media_items = []
+    for item in (discovery.get("media") or {}).get("data", []):
+        caption = item.get("caption") or ""
+        media_items.append(
+            {
+                "id": item.get("id"),
+                "caption": caption[:80],
+                "like_count": item.get("like_count"),
+                "comments_count": item.get("comments_count"),
+                "timestamp": item.get("timestamp"),
+                "media_type": item.get("media_type"),
+                "permalink": item.get("permalink"),
+            }
+        )
+    return {
+        "username": discovery.get("username"),
+        "name": discovery.get("name"),
+        "followers_count": discovery.get("followers_count"),
+        "media_count": discovery.get("media_count"),
+        "biography": discovery.get("biography"),
+        "recent_media": media_items,
+    }

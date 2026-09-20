@@ -510,10 +510,12 @@ class TestToolDefinitionsRegression(unittest.TestCase):
         self.assertEqual(set(props.keys()), {"business"})
         self.assertEqual(by_name["diagnose_business"]["input_schema"]["required"], ["business"])
 
-    def test_instagram_insights_registered_no_input(self):
+    def test_instagram_insights_registered_optional_competitor_field(self):
         by_name = {t["name"]: t for t in tools.TOOL_DEFINITIONS}
         self.assertIn("instagram_insights", by_name)
-        self.assertEqual(by_name["instagram_insights"]["input_schema"]["properties"], {})
+        schema = by_name["instagram_insights"]["input_schema"]
+        self.assertEqual(set(schema["properties"].keys()), {"competitor_username"})
+        self.assertNotIn("required", schema)
 
 
 # ---------------------------------------------------------------------------

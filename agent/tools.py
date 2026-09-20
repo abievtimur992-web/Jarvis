@@ -752,31 +752,47 @@ def diagnose_business(memory_dir: Path, business: str) -> dict:
 # qátelik berse, ANIQ solay aitadı — hesh qashan san oylap tappaydı.
 
 
-def instagram_insights() -> dict:
+def instagram_insights(competitor_username: str = "") -> dict:
     """Instagram Business hesabınıń házirgi statistikaların (jazılıwshı hám
     post sanı) hám aqırǵı postlardıń like/komment sanların Graph API arqalı
-    oqıp qaytaradı. Baylanıs sazlanbaǵan bolsa, sonı ANIQ aitadı."""
+    oqıp qaytaradı. `competitor_username` berilse, sol ATAQTAǴI BASQA
+    (public Business/Creator) hesaptıń ashıq statistikasın "Business
+    Discovery" arqalı oqıydı (bul akkaunt jeke/jabıq bolsa, ANIQ qátelik
+    qaytadı). Baylanıs sazlanbaǵan bolsa, sonı ANIQ aitadı."""
     if not instagram_mod.is_configured():
         return {
             "spoken": "Instagram baylanısı ele sazlanbaǵan — .env faylında INSTAGRAM_ACCESS_TOKEN joq.",
             "card": {"tool": "instagram_insights", "error": "sazlanbaǵan"},
         }
+
+    competitor_username = (competitor_username or "").strip().lstrip("@")
     try:
-        summary = instagram_mod.account_summary()
-        media = instagram_mod.recent_media(limit=5)
+        if competitor_username:
+            data = instagram_mod.business_discovery(competitor_username)
+            media = data.pop("recent_media", [])
+            summary = data
+        else:
+            summary = instagram_mod.account_summary()
+            media = instagram_mod.recent_media(limit=5)
     except instagram_mod.InstagramError as e:
         return {
             "spoken": f"Instagram-nan maǵlıwmat alıp bolmadım: {e}",
-            "card": {"tool": "instagram_insights", "error": str(e)},
+            "card": {"tool": "instagram_insights", "error": str(e), "competitor": bool(competitor_username)},
         }
 
+    who = "basqa akkaunt" if competitor_username else "seniń akkauntıń"
     spoken = (
-        f"Instagram: @{summary.get('username')} — {summary.get('followers_count')} "
+        f"Instagram ({who}): @{summary.get('username')} — {summary.get('followers_count')} "
         f"jazılıwshı, {summary.get('media_count')} post. Aqırǵı {len(media)} post tabıldı."
     )
     return {
         "spoken": spoken,
-        "card": {"tool": "instagram_insights", "account": summary, "recent_media": media},
+        "card": {
+            "tool": "instagram_insights",
+            "competitor": bool(competitor_username),
+            "account": summary,
+            "recent_media": media,
+        },
     }
 
 
@@ -990,9 +1006,25 @@ TOOL_DEFINITIONS = [
             "Instagram baylanısı .env-de sazlanbaǵan bolsa yamasa API qátelik berse, "
             "ANIQ solay aitadı — hesh qashan san oylap tappaydı. Instagram-nıń "
             "jaǵdayı/statistikası soralǵanda (jazılıwshı qansha, aqırǵı post qalay "
-            "ótti) usını shaqır."
+            "ótti) usını shaqır.\n\n"
+            "`competitor_username` berilse (basqa birewdiń Instagram atı, mısalı "
+            "'nike'), sol akkaunttıń ashıq (public) statistikasın oqıydı — TEK sol "
+            "akkaunt Business/Creator túrinde ashıq bolsa isleydi, jeke (personal) "
+            "profil ushın Instagram Graph API ruqsat bermeydi, tool sonı ANIQ qátelik "
+            "retinde qaytaradı."
         ),
-        "input_schema": {"type": "object", "properties": {}},
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "competitor_username": {
+                    "type": "string",
+                    "description": (
+                        "Basqa (kompetitor) Instagram akkaunttıń atı (@ belgisiz), "
+                        "mısalı 'nike'. Bos qaldırılsa, seniń óz akkauntıń tekseriledi."
+                    ),
+                },
+            },
+        },
     },
 ]
 
@@ -1032,7 +1064,7 @@ def run_tool(name: str, tool_input: dict, ctx: dict) -> dict:
         # hesh qashan "haqıyqıı financial data" retinde aralaspaydı).
         return diagnose_business(memory_dir, tool_input.get("business", ""))
     if name == "instagram_insights":
-        return instagram_insights()
+        return instagram_insights(tool_input.get("competitor_username", ""))
 
     return {
         "spoken": f"Bunday qural joq: {name}.",

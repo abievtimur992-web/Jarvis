@@ -130,8 +130,9 @@
       if (card.error) return "Instagram: " + card.error;
       const account = card.account || {};
       const media = card.recent_media || [];
+      const label = card.competitor ? "Basqa akkaunt" : "Seniń akkauntıń";
       const lines = [
-        "@" + (account.username || "?") + " — " + (account.followers_count ?? "?") + " jazılıwshı, " + (account.media_count ?? "?") + " post",
+        label + ": @" + (account.username || "?") + " — " + (account.followers_count ?? "?") + " jazılıwshı, " + (account.media_count ?? "?") + " post",
       ];
       if (media.length) {
         lines.push("", "Aqırǵı postlar:");
