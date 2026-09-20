@@ -57,6 +57,11 @@ ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 MAX_TOOL_ITERATIONS = 6       # bir sáwbet aylanasında eń kóp tool shaqırıw
 MAX_HISTORY_TURNS = 10        # "sońǵı ~10 gezek" — spec talabı
+# Sonnet 5 ózi "thinking" (oylaw) ushın da usı shektiń ishinen paydalanadı —
+# 1024 júdá az bolıp, oylaw blogı ortasınan kesilip, keyingi gezekte
+# Anthropic API-diń "bul blok ózgertilgen" (400) qátelik qaytarıwına alıp
+# keletugin edi (kesilgen blok — "originaldan basqa" dep esaplanadı).
+MAX_TOKENS = 4096
 
 
 def load_dotenv(path: Path) -> None:
@@ -246,7 +251,7 @@ def call_anthropic(messages: list, system_prompt: str) -> dict:
     body = json.dumps(
         {
             "model": MODEL,
-            "max_tokens": 1024,
+            "max_tokens": MAX_TOKENS,
             "system": [{"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}],
             "messages": messages,
             "tools": _tools_for_api(),
@@ -262,7 +267,7 @@ def call_anthropic(messages: list, system_prompt: str) -> dict:
             "content-type": "application/json",
         },
     )
-    with _urlopen_retrying(req, timeout=45) as resp:
+    with _urlopen_retrying(req, timeout=90) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
 
