@@ -47,20 +47,14 @@ import voice as voice_mod  # noqa: E402
 # Sazlawlar
 # ---------------------------------------------------------------------------
 
-MODEL = "claude-sonnet-5"  # Anthropic model id — birdiń-aq jerde ózgertiledi
-FAST_MODEL = "claude-haiku-4-5-20251001"  # dawıs transkriptin durıslaw sıyaqlı jeńil, tez juwap kerek jumıslar ushın
+MODEL = os.environ.get("OPENAI_MODEL") or "gpt-4o-mini"  # OpenAI model id — birdiń-aq jerde ózgertiledi
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("JARVIS_PORT", "8765"))
 STT_LANG = os.environ.get("STT_LANG", "kaz")
 
-ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
-ANTHROPIC_VERSION = "2023-06-01"
+OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
 MAX_TOOL_ITERATIONS = 6       # bir sáwbet aylanasında eń kóp tool shaqırıw
 MAX_HISTORY_TURNS = 10        # "sońǵı ~10 gezek" — spec talabı
-# Sonnet 5 ózi "thinking" (oylaw) ushın da usı shektiń ishinen paydalanadı —
-# 1024 júdá az bolıp, oylaw blogı ortasınan kesilip, keyingi gezekte
-# Anthropic API-diń "bul blok ózgertilgen" (400) qátelik qaytarıwına alıp
-# keletugin edi (kesilgen blok — "originaldan basqa" dep esaplanadı).
 MAX_TOKENS = 4096
 
 
@@ -81,7 +75,7 @@ def load_dotenv(path: Path) -> None:
 
 load_dotenv(PROJECT_ROOT / ".env")
 
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY", "")
 ELEVEN_VOICE_ID = os.environ.get("ELEVEN_VOICE_ID", "")
 
@@ -125,7 +119,7 @@ def build_graph_json(v: vault_mod.Vault) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Sáwbetlesiw — Anthropic API menen (stdlib urllib arqalı, kitapxanasız)
+# Sáwbetlesiw — OpenAI API menen (stdlib urllib arqalı, kitapxanasız)
 # ---------------------------------------------------------------------------
 
 _CONVERSATION: list = []  # [{"role": "user"/"assistant", "content": ...}, ...]
@@ -174,49 +168,18 @@ def _load_profile() -> dict:
 
 def _is_turn_start(message: dict) -> bool:
     """True — bul xabar haqıyqıy jańa gezektiń basy (iyeniń tekst sorawı).
-    False — bul tool_use (assistant) yamasa tool_result (user) xabarı,
-    yaǵnıy bir gezektiń ORTASI — sonnan kesiw Anthropic API-ge "juwı joq
-    tool_result" qátesin beredi."""
-    if message.get("role") != "user":
-        return False
-    content = message.get("content")
-    if isinstance(content, str):
-        return True
-    if isinstance(content, list):
-        return not any(isinstance(b, dict) and b.get("type") == "tool_result" for b in content)
-    return True
-
-
-_THINKING_BLOCK_TYPES = {"thinking", "redacted_thinking"}
-
-
-def _strip_thinking_blocks(start_index: int) -> None:
-    """Sonnet 5 sorlemese de ózi "thinking" bloklarin qosadı — bul bloklar
-    bir gezek ishinde (tool orkestraciyası ushın) ANIQ ózgerissiz qaytarılıwı
-    kerek, bolmasa Anthropic API "bul blok ózgertilgen" dep 400 qátelik
-    qaytaradı. Gezek juwmaqlanıp, _CONVERSATION-ǵa "tarıyx" retinde qalǵanda,
-    _trim_history() keyinirek eski xabarlardı óshiriwi múmkin — bul da sol
-    talaptı buzıp, KEYINGI gezekte sol qátelikti tuwdıradı. Sonıń ushın gezek
-    juwmaqlanǵanda thinking bloklardı alıp taslaymız (bul — Anthropic-tiń
-    óziniń qollaǵan qáwipsiz operatsiyası, "óshiriw" hesh qashan "ózgertiw"
-    sıyaqlı qátelik bermeydi)."""
-    for message in _CONVERSATION[start_index:]:
-        if message.get("role") != "assistant":
-            continue
-        content = message.get("content")
-        if not isinstance(content, list):
-            continue
-        message["content"] = [
-            b for b in content if not (isinstance(b, dict) and b.get("type") in _THINKING_BLOCK_TYPES)
-        ]
+    False — bul assistant (tool shaqırıw) yamasa tool (tool nátiyjesi)
+    xabarı, yaǵnıy bir gezektiń ORTASI — sonnan kesiw OpenAI API-ge "juwı
+    joq tool nátiyjesi" qátesin beredi."""
+    return message.get("role") == "user"
 
 
 def _trim_history() -> None:
     """Sońǵı ~MAX_HISTORY_TURNS gezekti qaldıradı, biraq kesiw noqatı
     hámishe HAQIYQIY gezek basına tuwrı keliwi kerek — bolmasa qalǵan
-    tarıyx tool_use/tool_result jubınıń biri joq halda qaladı, sonda
-    Anthropic API 400 qátesin qaytaradı ("tool_use_id ... found in
-    tool_result ... no corresponding tool_use")."""
+    tarıyx tool-shaqırıw/tool-nátiyje jubınıń biri joq halda qaladı, sonda
+    OpenAI API qátelik qaytaradı ("tool_call_id ... found in tool message
+    ... no corresponding tool call")."""
     max_messages = MAX_HISTORY_TURNS * 2
     if len(_CONVERSATION) <= max_messages:
         return
@@ -226,44 +189,46 @@ def _trim_history() -> None:
     del _CONVERSATION[:cut]
 
 
-_TOOLS_WITH_CACHE = None
+_TOOLS_FOR_API = None
 
 
 def _tools_for_api() -> list:
-    """TOOL_DEFINITIONS, aqırǵı tool-ge cache_control belgisi qosılğan halda.
+    """TOOL_DEFINITIONS (name/description/input_schema), OpenAI-diń "function
+    calling" formatına ótkerilgen halda ({"type": "function", "function":
+    {...}}). tools.py-diń ózi ózgermeydi — bul tek formattı ótkeriw."""
+    global _TOOLS_FOR_API
+    if _TOOLS_FOR_API is None:
+        _TOOLS_FOR_API = [
+            {
+                "type": "function",
+                "function": {
+                    "name": t["name"],
+                    "description": t["description"],
+                    "parameters": t["input_schema"],
+                },
+            }
+            for t in tools_mod.TOOL_DEFINITIONS
+        ]
+    return _TOOLS_FOR_API
 
-    system_promptti da, tool sıpatlamaların da hár shaqırıwda qayta-qayta
-    tolıq islewdiń ornına, Anthropic bul eki bloktı (tools + system)
-    keshi (cache) etip saqlaydı — bul, ásirese bir gezek ishinde tool
-    kerek bolğanda bolatuğın ekinshi shaqırıwdı tezletedi."""
-    global _TOOLS_WITH_CACHE
-    if _TOOLS_WITH_CACHE is None:
-        tools = [dict(t) for t in tools_mod.TOOL_DEFINITIONS]
-        if tools:
-            tools[-1] = {**tools[-1], "cache_control": {"type": "ephemeral"}}
-        _TOOLS_WITH_CACHE = tools
-    return _TOOLS_WITH_CACHE
 
-
-def call_anthropic(messages: list, system_prompt: str) -> dict:
-    if not ANTHROPIC_API_KEY:
-        raise RuntimeError("ANTHROPIC_API_KEY joq")
+def call_openai(messages: list, system_prompt: str) -> dict:
+    if not OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY joq")
     body = json.dumps(
         {
             "model": MODEL,
             "max_tokens": MAX_TOKENS,
-            "system": [{"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}],
-            "messages": messages,
+            "messages": [{"role": "system", "content": system_prompt}] + messages,
             "tools": _tools_for_api(),
         }
     ).encode("utf-8")
     req = urllib.request.Request(
-        ANTHROPIC_API_URL,
+        OPENAI_API_URL,
         data=body,
         method="POST",
         headers={
-            "x-api-key": ANTHROPIC_API_KEY,
-            "anthropic-version": ANTHROPIC_VERSION,
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
             "content-type": "application/json",
         },
     )
@@ -274,12 +239,12 @@ def call_anthropic(messages: list, system_prompt: str) -> dict:
 def run_conversation_turn(user_text: str) -> dict:
     """Bir gezek sáwbet: iye tekstin qabıl etip, aqırǵı juwaptı qaytaradı.
 
-    Gezek ortasında (mısalı, tool ishinde qátelik shıqsa yamasa Anthropic
+    Gezek ortasında (mısalı, tool ishinde qátelik shıqsa yamasa OpenAI
     HTTPError qaytarsa) qátelik shıqsa, usı gezekte _CONVERSATION-ǵa
     qosılǵannıń HÁMMESI biykarlanadı (rollback). Bolmasa, jarım-jasar
-    qalǵan tool_use/tool_result jubı _CONVERSATION-da MÁNGI qalıp,
-    KELESI hár bir gezekte de sonı Anthropic-qa jiberip, hámishe sol 400
-    qátesin qaytara beredi — server qayta iske túsirilgenshe."""
+    qalǵan tool-shaqırıw/tool-nátiyje jubı _CONVERSATION-da MÁNGI qalıp,
+    KELESI hár bir gezekte de sonı OpenAI-ge jiberip, hámishe qátelik
+    qaytara beredi — server qayta iske túsirilgenshe."""
     turn_start_len = len(_CONVERSATION)
     try:
         return _run_conversation_turn_inner(user_text)
@@ -295,7 +260,6 @@ def _run_conversation_turn_inner(user_text: str) -> dict:
         "memory_dir": data_mod.memory_dir(),
     }
 
-    turn_start = len(_CONVERSATION)
     _CONVERSATION.append({"role": "user", "content": user_text})
     system_prompt = _load_system_prompt()
     last_card = None
@@ -304,24 +268,25 @@ def _run_conversation_turn_inner(user_text: str) -> dict:
 
     for step in range(MAX_TOOL_ITERATIONS):
         t0 = time.perf_counter()
-        response = call_anthropic(list(_CONVERSATION), system_prompt)
+        response = call_openai(list(_CONVERSATION), system_prompt)
         print(f"[waqit] model shaqırıw #{step + 1}: {time.perf_counter() - t0:.2f}s")
-        content_blocks = response.get("content", [])
-        _CONVERSATION.append({"role": "assistant", "content": content_blocks})
+        message = response["choices"][0]["message"]
+        _CONVERSATION.append(message)
 
-        tool_uses = [b for b in content_blocks if b.get("type") == "tool_use"]
-        if not tool_uses:
-            text_parts = [b.get("text", "") for b in content_blocks if b.get("type") == "text"]
-            final_text = "\n".join(t for t in text_parts if t).strip()
-            _strip_thinking_blocks(turn_start)
+        tool_calls = message.get("tool_calls") or []
+        if not tool_calls:
+            final_text = (message.get("content") or "").strip()
             _trim_history()
             print(f"[waqit] gezek jámi: {time.perf_counter() - turn_started:.2f}s")
             return {"reply": final_text, "card": last_card, "tool_log": tool_log}
 
-        tool_result_blocks = []
-        for tu in tool_uses:
-            name = tu.get("name")
-            tool_input = tu.get("input", {}) or {}
+        for tc in tool_calls:
+            fn = tc.get("function") or {}
+            name = fn.get("name")
+            try:
+                tool_input = json.loads(fn.get("arguments") or "{}")
+            except json.JSONDecodeError:
+                tool_input = {}
             t_tool = time.perf_counter()
             result = tools_mod.run_tool(name, tool_input, ctx)
             print(f"[waqit] tool {name}: {time.perf_counter() - t_tool:.2f}s")
@@ -334,16 +299,14 @@ def _run_conversation_turn_inner(user_text: str) -> dict:
             # model tabılǵan derekti "oqıy" almaydı, tek sanın biledi.
             spoken = result.get("spoken", "")
             card_json = json.dumps(card, ensure_ascii=False)
-            tool_result_blocks.append(
+            _CONVERSATION.append(
                 {
-                    "type": "tool_result",
-                    "tool_use_id": tu.get("id"),
+                    "role": "tool",
+                    "tool_call_id": tc.get("id"),
                     "content": f"{spoken}\n\n{card_json}" if spoken else card_json,
                 }
             )
-        _CONVERSATION.append({"role": "user", "content": tool_result_blocks})
 
-    _strip_thinking_blocks(turn_start)
     _trim_history()
     print(f"[waqit] gezek jámi (shek asıldı): {time.perf_counter() - turn_started:.2f}s")
     return {
@@ -355,25 +318,23 @@ def _run_conversation_turn_inner(user_text: str) -> dict:
 
 def call_model_simple(instruction: str) -> str:
     """Bir gezeklik, tarixsız model shaqırıwı (dawıs túzetiw ushın)."""
-    if not ANTHROPIC_API_KEY:
-        raise RuntimeError("ANTHROPIC_API_KEY joq")
+    if not OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY joq")
     body = json.dumps(
-        {"model": FAST_MODEL, "max_tokens": 400, "messages": [{"role": "user", "content": instruction}]}
+        {"model": MODEL, "max_tokens": 400, "messages": [{"role": "user", "content": instruction}]}
     ).encode("utf-8")
     req = urllib.request.Request(
-        ANTHROPIC_API_URL,
+        OPENAI_API_URL,
         data=body,
         method="POST",
         headers={
-            "x-api-key": ANTHROPIC_API_KEY,
-            "anthropic-version": ANTHROPIC_VERSION,
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
             "content-type": "application/json",
         },
     )
     with _urlopen_retrying(req, timeout=30) as resp:
         data = json.loads(resp.read().decode("utf-8"))
-    parts = [b.get("text", "") for b in data.get("content", []) if b.get("type") == "text"]
-    return "\n".join(t for t in parts if t).strip()
+    return (data["choices"][0]["message"].get("content") or "").strip()
 
 
 def _build_vocabulary() -> list:
@@ -483,7 +444,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
         elif route == "/api/status":
             self._send_json(
                 {
-                    "model_available": bool(ANTHROPIC_API_KEY),
+                    "model_available": bool(OPENAI_API_KEY),
                     "voice_available": bool(ELEVENLABS_API_KEY and ELEVEN_VOICE_ID),
                     "mode": data_mod.mode_label(),
                     "model": MODEL,
@@ -509,7 +470,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
             if not text:
                 self._send_json({"error": "tekst joq"}, status=400)
                 return
-            if not ANTHROPIC_API_KEY:
+            if not OPENAI_API_KEY:
                 self._send_json({"model_available": False, "reply": None, "card": None})
                 return
             try:
@@ -518,7 +479,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
             except urllib.error.HTTPError as e:
                 detail = e.read().decode("utf-8", errors="replace")[:500]
                 self._send_json(
-                    {"model_available": True, "error": f"Anthropic API qátesi: {e.code} {detail}"},
+                    {"model_available": True, "error": f"OpenAI API qátesi: {e.code} {detail}"},
                     status=502,
                 )
             except Exception as e:  # noqa: BLE001
@@ -544,7 +505,7 @@ class JarvisHandler(BaseHTTPRequestHandler):
             except voice_mod.VoiceError as e:
                 self._send_json({"error": str(e)}, status=502)
                 return
-            model_fn = call_model_simple if ANTHROPIC_API_KEY else None
+            model_fn = call_model_simple if OPENAI_API_KEY else None
             result = voice_mod.repair_transcript(raw, _build_vocabulary(), model_fn)
             self._send_json(result)
         elif route == "/api/speak":
@@ -578,8 +539,8 @@ def main() -> None:
     v = get_vault()
     vault_mod.print_index_report(v)
     print(f"\nJarvis iske tústi: http://{HOST}:{PORT}  (rejim: {data_mod.mode_label()})")
-    if not ANTHROPIC_API_KEY:
-        print("ESKERTIW: ANTHROPIC_API_KEY .env faylında joq — Jarvis sóylese almaydı.")
+    if not OPENAI_API_KEY:
+        print("ESKERTIW: OPENAI_API_KEY .env faylında joq — Jarvis sóylese almaydı.")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

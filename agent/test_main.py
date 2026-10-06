@@ -1,7 +1,7 @@
 """
 test_main.py — main.py-dagı sáwbet tarıyxı funktsiyaları ushın testler.
 
-Anthropic API-ge haqıyqıy tarmaq shaqırıwı islenbeydi (ANTHROPIC_API_KEY joq
+OpenAI API-ge haqıyqıy tarmaq shaqırıwı islenbeydi (OPENAI_API_KEY joq
 bolsa da, main import etiledi — bul jerdegi testler tek _CONVERSATION penen
 islesetuǵın taza funktsiyalardı tekseredi).
 """
@@ -11,70 +11,80 @@ import unittest
 import main
 
 
-class StripThinkingBlocksTestCase(unittest.TestCase):
+class IsTurnStartTestCase(unittest.TestCase):
+    def test_user_message_is_turn_start(self):
+        self.assertTrue(main._is_turn_start({"role": "user", "content": "soraw"}))
+
+    def test_assistant_message_is_not_turn_start(self):
+        self.assertFalse(
+            main._is_turn_start({"role": "assistant", "content": None, "tool_calls": [{"id": "t1"}]})
+        )
+
+    def test_tool_result_message_is_not_turn_start(self):
+        self.assertFalse(main._is_turn_start({"role": "tool", "tool_call_id": "t1", "content": "nátiyje"}))
+
+
+class TrimHistoryTestCase(unittest.TestCase):
     def setUp(self):
         main._CONVERSATION.clear()
 
     def tearDown(self):
         main._CONVERSATION.clear()
 
-    def test_removes_thinking_and_redacted_thinking_keeps_others(self):
-        main._CONVERSATION.append({"role": "user", "content": "soraw"})
-        main._CONVERSATION.append(
-            {
-                "role": "assistant",
-                "content": [
-                    {"type": "thinking", "thinking": "...", "signature": "sig"},
-                    {"type": "tool_use", "id": "t1", "name": "search_brain", "input": {}},
-                ],
-            }
+    def test_cut_point_always_lands_on_a_user_turn_start(self):
+        # Eki gezek: biri tool-shaqırıw/tool-nátiyje jubı menen, biri ápiwayı.
+        main._CONVERSATION.extend(
+            [
+                {"role": "user", "content": "1-soraw"},
+                {"role": "assistant", "content": None, "tool_calls": [{"id": "t1"}]},
+                {"role": "tool", "tool_call_id": "t1", "content": "nátiyje"},
+                {"role": "assistant", "content": "juwap1"},
+                {"role": "user", "content": "2-soraw"},
+                {"role": "assistant", "content": "juwap2"},
+            ]
         )
-        main._CONVERSATION.append(
-            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "nátiyje"}]}
+        # MAX_HISTORY_TURNS * 2 -den úlken qılıw ushın ulıwma shekti waqıtsha kishireytemiz
+        old_limit = main.MAX_HISTORY_TURNS
+        main.MAX_HISTORY_TURNS = 1
+        try:
+            main._trim_history()
+        finally:
+            main.MAX_HISTORY_TURNS = old_limit
+
+        self.assertTrue(main._is_turn_start(main._CONVERSATION[0]))
+        # Tool-nátiyje jubı bólinbegen — "tool" xabarı "assistant"-sız qalmaǵan
+        roles = [m["role"] for m in main._CONVERSATION]
+        if "tool" in roles:
+            tool_idx = roles.index("tool")
+            self.assertEqual(roles[tool_idx - 1], "assistant")
+
+    def test_short_history_is_not_trimmed(self):
+        main._CONVERSATION.extend(
+            [
+                {"role": "user", "content": "soraw"},
+                {"role": "assistant", "content": "juwap"},
+            ]
         )
-        main._CONVERSATION.append(
-            {
-                "role": "assistant",
-                "content": [
-                    {"type": "redacted_thinking", "data": "..."},
-                    {"type": "text", "text": "juwap"},
-                ],
-            }
-        )
+        main._trim_history()
+        self.assertEqual(len(main._CONVERSATION), 2)
 
-        main._strip_thinking_blocks(0)
 
-        assistant_messages = [m for m in main._CONVERSATION if m["role"] == "assistant"]
-        for message in assistant_messages:
-            block_types = {b["type"] for b in message["content"]}
-            self.assertNotIn("thinking", block_types)
-            self.assertNotIn("redacted_thinking", block_types)
-        self.assertEqual(assistant_messages[0]["content"][0]["type"], "tool_use")
-        self.assertEqual(assistant_messages[1]["content"][0]["type"], "text")
+class ToolsForApiTestCase(unittest.TestCase):
+    def test_converts_to_openai_function_calling_shape(self):
+        main._TOOLS_FOR_API = None  # keshti tazalap, qaytadan qurıwǵa májbúrlew
+        tools = main._tools_for_api()
+        self.assertTrue(tools)
+        for t in tools:
+            self.assertEqual(t["type"], "function")
+            self.assertIn("name", t["function"])
+            self.assertIn("description", t["function"])
+            self.assertIn("parameters", t["function"])
 
-    def test_does_not_touch_messages_before_start_index(self):
-        main._CONVERSATION.append(
-            {"role": "assistant", "content": [{"type": "thinking", "thinking": "eski", "signature": "sig"}]}
-        )
-        main._CONVERSATION.append({"role": "user", "content": "jańa gezek"})
-        main._CONVERSATION.append(
-            {"role": "assistant", "content": [{"type": "thinking", "thinking": "jańa", "signature": "sig2"}, {"type": "text", "text": "juwap"}]}
-        )
-
-        main._strip_thinking_blocks(1)
-
-        self.assertEqual(main._CONVERSATION[0]["content"][0]["type"], "thinking")
-        block_types = {b["type"] for b in main._CONVERSATION[2]["content"]}
-        self.assertNotIn("thinking", block_types)
-
-    def test_ignores_string_content_and_non_assistant_messages(self):
-        main._CONVERSATION.append({"role": "user", "content": "tekst"})
-        main._CONVERSATION.append({"role": "assistant", "content": "tekst juwap"})
-
-        main._strip_thinking_blocks(0)  # qátelik shıǵarmaydı
-
-        self.assertEqual(main._CONVERSATION[0]["content"], "tekst")
-        self.assertEqual(main._CONVERSATION[1]["content"], "tekst juwap")
+    def test_includes_search_brain(self):
+        main._TOOLS_FOR_API = None
+        tools = main._tools_for_api()
+        names = {t["function"]["name"] for t in tools}
+        self.assertIn("search_brain", names)
 
 
 if __name__ == "__main__":
