@@ -47,7 +47,7 @@ import voice as voice_mod  # noqa: E402
 # Sazlawlar
 # ---------------------------------------------------------------------------
 
-MODEL = os.environ.get("OPENAI_MODEL") or "gpt-4o-mini"  # OpenAI model id — birdiń-aq jerde ózgertiledi
+MODEL = os.environ.get("OPENAI_MODEL") or "gpt-6-luna"  # OpenAI model id — birdiń-aq jerde ózgertiledi
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("JARVIS_PORT", "8765"))
 STT_LANG = os.environ.get("STT_LANG", "kaz")
