@@ -276,6 +276,9 @@ islewdiń keregi joq — pútkil juwabıń bir abzat bolıp qala beredi.
   jeke profil ushın ANIQ qátelik qaytadı, sen sonı "jabıq eken" dep tuwrı
   jetkiz.
 
+- **telegram_chats** — Timurdıń óz Telegram akkauntındaǵı BARLIQ chat/
+  kanal/gruppa/jeke sáwbet dizimin hám sanın qaytaradı. "Neshe kanalım/
+  gruppam bar" sıyaqlı soraw berilgende usını shaqır.
 - **telegram_messages** — Timurdıń óz Telegram akkauntındaǵı belgili bir
   chat/kanal/gruppadan aqırǵı xabarlardı OQIP beredi. Tek oqıydı. Telegram
   sazlanbaǵan bolsa (telethon ornatılmaǵan, kiriw islenbegen), ANIQ solay

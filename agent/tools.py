@@ -834,9 +834,45 @@ def instagram_insights(competitor_username: str = "") -> dict:
 # 9) telegram_messages / telegram_send — Timurdıń óz Telegram akkauntı
 # ---------------------------------------------------------------------------
 #
-# telegram_messages — READ-ONLY, erkin shaqırıladı.
+# telegram_chats / telegram_messages — READ-ONLY, erkin shaqırıladı.
 # telegram_send — JIBERIW operaciyası: model bunı TEK iyeniń ANIQ
 # ruqsatınan keyin shaqırıwı kerek (prompt.md-dagı qaǵıyda qara).
+
+
+def telegram_chats() -> dict:
+    """Barlıq Telegram chat/kanal/gruppa/jeke sáwbet dizimin hám sanın
+    qaytaradı (TEK OQIW). Telegram sazlanbaǵan bolsa, ANIQ solay aitadı."""
+    if not telegram_mod.is_configured():
+        return {
+            "spoken": (
+                "Telegram baylanısı ele sazlanbaǵan — telethon ornatılmaǵan "
+                "yamasa 'python telegram_login.py' ele islenbegen."
+            ),
+            "card": {"tool": "telegram_chats", "error": "sazlanbaǵan"},
+        }
+    try:
+        data = telegram_mod.list_dialogs()
+    except telegram_mod.TelegramError as e:
+        return {
+            "spoken": f"Telegram dizimin alıp bolmadım: {e}",
+            "card": {"tool": "telegram_chats", "error": str(e)},
+        }
+    dialogs = data.get("dialogs", [])
+    channels = sum(1 for d in dialogs if d["kind"] == "kanal")
+    groups = sum(1 for d in dialogs if d["kind"] == "gruppa")
+    private = sum(1 for d in dialogs if d["kind"] == "jeke sáwbet")
+    spoken = f"Barlıǵı {len(dialogs)} chat: {channels} kanal, {groups} gruppa, {private} jeke sáwbet."
+    return {
+        "spoken": spoken,
+        "card": {
+            "tool": "telegram_chats",
+            "total": len(dialogs),
+            "channels": channels,
+            "groups": groups,
+            "private": private,
+            "dialogs": dialogs,
+        },
+    }
 
 
 def telegram_messages(chat: str, limit: int = 10) -> dict:
@@ -1131,6 +1167,17 @@ TOOL_DEFINITIONS = [
         },
     },
     {
+        "name": "telegram_chats",
+        "description": (
+            "Timurdıń óz Telegram akkauntındaǵı BARLIQ chat/kanal/gruppa/jeke "
+            "sáwbet dizimin hám sanın (neshe kanal, neshe gruppa) qaytaradı. "
+            "'Neshe kanalım/gruppam bar', 'Telegramda ne bar' sıyaqlı soraw "
+            "berilgende usını shaqır (telegram_messages-ten parqı — bul BARLIǴIN "
+            "sanaydı, ol BIR nızıq chattan xabar oqıydı)."
+        ),
+        "input_schema": {"type": "object", "properties": {}},
+    },
+    {
         "name": "telegram_messages",
         "description": (
             "Timurdıń óz Telegram akkauntındaǵı belgili bir chat/kanal/gruppadan "
@@ -1216,6 +1263,8 @@ def run_tool(name: str, tool_input: dict, ctx: dict) -> dict:
         return diagnose_business(memory_dir, tool_input.get("business", ""))
     if name == "instagram_insights":
         return instagram_insights(tool_input.get("competitor_username", ""))
+    if name == "telegram_chats":
+        return telegram_chats()
     if name == "telegram_messages":
         return telegram_messages(tool_input.get("chat", ""), tool_input.get("limit", 10))
     if name == "telegram_send":

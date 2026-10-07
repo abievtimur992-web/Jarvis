@@ -461,7 +461,7 @@ class TestRememberNumericValidation(RememberNumericTestCase):
 
 
 class TestToolDefinitionsRegression(unittest.TestCase):
-    def test_all_ten_tools_registered(self):
+    def test_all_eleven_tools_registered(self):
         names = [t["name"] for t in tools.TOOL_DEFINITIONS]
         self.assertEqual(
             names,
@@ -474,6 +474,7 @@ class TestToolDefinitionsRegression(unittest.TestCase):
                 "compute_finance",
                 "diagnose_business",
                 "instagram_insights",
+                "telegram_chats",
                 "telegram_messages",
                 "telegram_send",
             ],
@@ -569,6 +570,19 @@ class TelegramToolsTestCase(unittest.TestCase):
                 os.environ[k] = v
             else:
                 os.environ.pop(k, None)
+
+    def test_telegram_chats_not_configured_reports_clearly_no_crash(self):
+        result = tools.telegram_chats()
+        self.assertEqual(result["card"]["tool"], "telegram_chats")
+        self.assertEqual(result["card"]["error"], "sazlanbaǵan")
+
+    def test_run_tool_dispatcher_wires_telegram_chats(self):
+        ctx = {"vault": None, "profile": {}, "memory_dir": Path(tempfile.mkdtemp())}
+        try:
+            result = tools.run_tool("telegram_chats", {}, ctx)
+            self.assertEqual(result["card"]["tool"], "telegram_chats")
+        finally:
+            shutil.rmtree(ctx["memory_dir"], ignore_errors=True)
 
     def test_telegram_messages_not_configured_reports_clearly_no_crash(self):
         result = tools.telegram_messages("@arkan_sex")

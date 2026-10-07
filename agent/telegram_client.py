@@ -79,6 +79,29 @@ def _client():
     return TelegramClient(str(SESSION_PATH), api_id_int, api_hash)
 
 
+def list_dialogs() -> dict:
+    """Barlıq chat/kanal/gruppa/jeke sáwbet dizimin (atları hám túrleri)
+    qaytaradı (TEK OQIW)."""
+    try:
+        with _client() as client:
+            items = []
+            for d in client.get_dialogs():
+                if d.is_channel:
+                    kind = "kanal"
+                elif d.is_group:
+                    kind = "gruppa"
+                elif d.is_user:
+                    kind = "jeke sáwbet"
+                else:
+                    kind = "basqa"
+                items.append({"name": d.name, "kind": kind})
+    except TelegramError:
+        raise
+    except Exception as e:  # noqa: BLE001
+        raise TelegramError(str(e)) from e
+    return {"dialogs": items}
+
+
 def recent_messages(chat: str, limit: int = 10) -> dict:
     """Berilgen chat/kanal/gruppadan aqırǵı tekst xabarlardı oqıydı
     (TEK OQIW — hesh nárse jazbaydı/jibermeydi)."""
