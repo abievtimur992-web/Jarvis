@@ -23,6 +23,7 @@ import business as business_mod
 import instagram as instagram_mod
 import kaa
 import memory as memory_mod
+import telegram_client as telegram_mod
 import vault as vault_mod
 
 # ---------------------------------------------------------------------------
@@ -830,7 +831,77 @@ def instagram_insights(competitor_username: str = "") -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Anthropic tool-schema-ları hám dispetcher
+# 9) telegram_messages / telegram_send — Timurdıń óz Telegram akkauntı
+# ---------------------------------------------------------------------------
+#
+# telegram_messages — READ-ONLY, erkin shaqırıladı.
+# telegram_send — JIBERIW operaciyası: model bunı TEK iyeniń ANIQ
+# ruqsatınan keyin shaqırıwı kerek (prompt.md-dagı qaǵıyda qara).
+
+
+def telegram_messages(chat: str, limit: int = 10) -> dict:
+    """Berilgen Telegram chat/kanal/gruppadan aqırǵı xabarlardı oqıp
+    beredi (TEK OQIW). Telegram sazlanbaǵan bolsa (telethon ornatılmaǵan,
+    .env-de kilit joq, yamasa bir ret kiriw (telegram_login.py) islenbegen
+    bolsa), ANIQ solay aitadı."""
+    if not telegram_mod.is_configured():
+        return {
+            "spoken": (
+                "Telegram baylanısı ele sazlanbaǵan — telethon ornatılmaǵan "
+                "yamasa 'python telegram_login.py' ele islenbegen."
+            ),
+            "card": {"tool": "telegram_messages", "error": "sazlanbaǵan"},
+        }
+    try:
+        limit = max(1, min(int(limit or 10), 50))
+    except (TypeError, ValueError):
+        limit = 10
+    try:
+        data = telegram_mod.recent_messages(chat, limit=limit)
+    except telegram_mod.TelegramError as e:
+        return {
+            "spoken": f"Telegram-nan xabar alıp bolmadım: {e}",
+            "card": {"tool": "telegram_messages", "chat": chat, "error": str(e)},
+        }
+    count = len(data.get("messages", []))
+    return {
+        "spoken": f"'{chat}' chatınan {count} xabar tabıldı.",
+        "card": {"tool": "telegram_messages", "chat": chat, "messages": data.get("messages", [])},
+    }
+
+
+def telegram_send(chat: str, text: str) -> dict:
+    """Berilgen Telegram chat/kanal/gruppaǵa xabar jiberedi. Bul tool
+    ÓZI sheklew tekserpeydi — model TEK iyeniń ANIQ ("awa") ruqsatınan
+    keyin shaqırıwı kerek, prompt.md-dagı qaǵıyda."""
+    if not telegram_mod.is_configured():
+        return {
+            "spoken": (
+                "Telegram baylanısı ele sazlanbaǵan — telethon ornatılmaǵan "
+                "yamasa 'python telegram_login.py' ele islenbegen."
+            ),
+            "card": {"tool": "telegram_send", "error": "sazlanbaǵan"},
+        }
+    if not (chat and text):
+        return {
+            "spoken": "Qaysı chatqa hám ne jazıw kerekligi anıq emes.",
+            "card": {"tool": "telegram_send", "error": "chat yamasa text joq"},
+        }
+    try:
+        data = telegram_mod.send_message(chat, text)
+    except telegram_mod.TelegramError as e:
+        return {
+            "spoken": f"Telegramǵa jiberip bolmadım: {e}",
+            "card": {"tool": "telegram_send", "chat": chat, "error": str(e)},
+        }
+    return {
+        "spoken": f"'{chat}' chatına xabar jiberildi.",
+        "card": {"tool": "telegram_send", "chat": chat, "sent_id": data.get("sent_id")},
+    }
+
+
+# ---------------------------------------------------------------------------
+# OpenAI tool-schema-ları hám dispetcher
 # ---------------------------------------------------------------------------
 
 TOOL_DEFINITIONS = [
@@ -1059,6 +1130,53 @@ TOOL_DEFINITIONS = [
             },
         },
     },
+    {
+        "name": "telegram_messages",
+        "description": (
+            "Timurdıń óz Telegram akkauntındaǵı belgili bir chat/kanal/gruppadan "
+            "aqırǵı xabarlardı OQIP beredi. Tek oqıydı — jazbaydı, jibermeydi. "
+            "Telegram sazlanbaǵan bolsa, ANIQ solay aitadı — hesh qashan xabar "
+            "oylap tappaydı."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "chat": {
+                    "type": "string",
+                    "description": "Chat/kanal/gruppa atı yamasa @username (mısalı '@arkan_sex').",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Qansha aqırǵı xabar kerek (standart 10, eń kópi 50).",
+                },
+            },
+            "required": ["chat"],
+        },
+    },
+    {
+        "name": "telegram_send",
+        "description": (
+            "Timurdıń óz Telegram akkauntınan belgili bir chat/kanal/gruppaǵa "
+            "xabar JIBEREDI. Bul — JIBERIW operaciyası: Timur ANIQ ('awa', 'jiber', "
+            "'dógerek') dep ruqsat bermeginshe, bul tooldı HESH QASHAN ÓZIŃNEN "
+            "shaqırma — aldın qaysı chatqa, qanday tekst jiberiletuǵının ashıq "
+            "sóylesip, sonnan keyin ǵana shaqır."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "chat": {
+                    "type": "string",
+                    "description": "Chat/kanal/gruppa atı yamasa @username.",
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Jiberiletuǵın xabar tekst.",
+                },
+            },
+            "required": ["chat", "text"],
+        },
+    },
 ]
 
 
@@ -1098,6 +1216,10 @@ def run_tool(name: str, tool_input: dict, ctx: dict) -> dict:
         return diagnose_business(memory_dir, tool_input.get("business", ""))
     if name == "instagram_insights":
         return instagram_insights(tool_input.get("competitor_username", ""))
+    if name == "telegram_messages":
+        return telegram_messages(tool_input.get("chat", ""), tool_input.get("limit", 10))
+    if name == "telegram_send":
+        return telegram_send(tool_input.get("chat", ""), tool_input.get("text", ""))
 
     return {
         "spoken": f"Bunday qural joq: {name}.",

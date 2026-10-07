@@ -461,7 +461,7 @@ class TestRememberNumericValidation(RememberNumericTestCase):
 
 
 class TestToolDefinitionsRegression(unittest.TestCase):
-    def test_all_eight_tools_registered(self):
+    def test_all_ten_tools_registered(self):
         names = [t["name"] for t in tools.TOOL_DEFINITIONS]
         self.assertEqual(
             names,
@@ -474,6 +474,8 @@ class TestToolDefinitionsRegression(unittest.TestCase):
                 "compute_finance",
                 "diagnose_business",
                 "instagram_insights",
+                "telegram_messages",
+                "telegram_send",
             ],
         )
 
@@ -553,6 +555,45 @@ class InstagramInsightsTestCase(unittest.TestCase):
         try:
             result = tools.run_tool("instagram_insights", {}, ctx)
             self.assertEqual(result["card"]["tool"], "instagram_insights")
+        finally:
+            shutil.rmtree(ctx["memory_dir"], ignore_errors=True)
+
+
+class TelegramToolsTestCase(unittest.TestCase):
+    def setUp(self):
+        self._saved = {k: os.environ.pop(k, None) for k in ("TELEGRAM_API_ID", "TELEGRAM_API_HASH")}
+
+    def tearDown(self):
+        for k, v in self._saved.items():
+            if v is not None:
+                os.environ[k] = v
+            else:
+                os.environ.pop(k, None)
+
+    def test_telegram_messages_not_configured_reports_clearly_no_crash(self):
+        result = tools.telegram_messages("@arkan_sex")
+        self.assertEqual(result["card"]["tool"], "telegram_messages")
+        self.assertEqual(result["card"]["error"], "sazlanbaǵan")
+        self.assertIn("sazlanbaǵan", result["spoken"])
+
+    def test_telegram_send_not_configured_reports_clearly_no_crash(self):
+        result = tools.telegram_send("@arkan_sex", "sálem")
+        self.assertEqual(result["card"]["tool"], "telegram_send")
+        self.assertEqual(result["card"]["error"], "sazlanbaǵan")
+
+    def test_run_tool_dispatcher_wires_telegram_messages(self):
+        ctx = {"vault": None, "profile": {}, "memory_dir": Path(tempfile.mkdtemp())}
+        try:
+            result = tools.run_tool("telegram_messages", {"chat": "@x"}, ctx)
+            self.assertEqual(result["card"]["tool"], "telegram_messages")
+        finally:
+            shutil.rmtree(ctx["memory_dir"], ignore_errors=True)
+
+    def test_run_tool_dispatcher_wires_telegram_send(self):
+        ctx = {"vault": None, "profile": {}, "memory_dir": Path(tempfile.mkdtemp())}
+        try:
+            result = tools.run_tool("telegram_send", {"chat": "@x", "text": "sálem"}, ctx)
+            self.assertEqual(result["card"]["tool"], "telegram_send")
         finally:
             shutil.rmtree(ctx["memory_dir"], ignore_errors=True)
 

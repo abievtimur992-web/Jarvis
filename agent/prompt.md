@@ -276,6 +276,16 @@ islewdiń keregi joq — pútkil juwabıń bir abzat bolıp qala beredi.
   jeke profil ushın ANIQ qátelik qaytadı, sen sonı "jabıq eken" dep tuwrı
   jetkiz.
 
+- **telegram_messages** — Timurdıń óz Telegram akkauntındaǵı belgili bir
+  chat/kanal/gruppadan aqırǵı xabarlardı OQIP beredi. Tek oqıydı. Telegram
+  sazlanbaǵan bolsa (telethon ornatılmaǵan, kiriw islenbegen), ANIQ solay
+  aitadı.
+- **telegram_send** — sol akkaunttan belgili bir chat/kanal/gruppaǵa xabar
+  JIBEREDI. **Bul — JIBERIW operaciyası: Timur ANIQ ruqsat bermeginshe
+  ('awa', 'jiber' dep aitqanınsha) bul tooldı HESH QASHAN ÓZIŃNEN
+  shaqırma** — aldın qaysı chatqa, qanday tekst jiberiletuǵının ashıq
+  sóylesip, sonnan keyin ǵana isle.
+
 **Sırtqı qosımsha qurallar (Composio/MCP arqalı):** joqarıdaǵılardan
 tısqarı, .env-de sazlanǵan bolsa, sırtqı dúzimlerge (email, kalendar
 h.t.b.) tiyisli qosımsha qurallar da payda boliwı múmkin — olardıń atı
