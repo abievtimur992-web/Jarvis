@@ -87,5 +87,56 @@ class ToolsForApiTestCase(unittest.TestCase):
         self.assertIn("search_brain", names)
 
 
+class IsOpenAICompatibleSchemaTestCase(unittest.TestCase):
+    def test_plain_object_schema_is_compatible(self):
+        self.assertTrue(
+            main._is_openai_compatible_schema({"type": "object", "properties": {"q": {"type": "string"}}})
+        )
+
+    def test_top_level_oneof_is_not_compatible(self):
+        self.assertFalse(main._is_openai_compatible_schema({"oneOf": [{"type": "object"}]}))
+
+    def test_top_level_anyof_is_not_compatible(self):
+        self.assertFalse(main._is_openai_compatible_schema({"anyOf": [{"type": "string"}]}))
+
+    def test_non_object_type_is_not_compatible(self):
+        self.assertFalse(main._is_openai_compatible_schema({"type": "string"}))
+
+    def test_non_dict_is_not_compatible(self):
+        self.assertFalse(main._is_openai_compatible_schema(None))
+        self.assertFalse(main._is_openai_compatible_schema("bul schema emes"))
+
+    def test_mcp_tool_with_broken_schema_is_skipped_others_kept(self):
+        main._TOOLS_FOR_API = None
+
+        class _FakeMCP:
+            @staticmethod
+            def is_configured():
+                return True
+
+            @staticmethod
+            def list_tools():
+                return [
+                    {"name": "COMPOSIO_MANAGE_SKILL", "description": "qáte", "inputSchema": {"oneOf": []}},
+                    {
+                        "name": "gmail_send",
+                        "description": "jaqsı",
+                        "inputSchema": {"type": "object", "properties": {}},
+                    },
+                ]
+
+        original_mcp = main.mcp_mod
+        main.mcp_mod = _FakeMCP
+        try:
+            tools = main._tools_for_api()
+        finally:
+            main.mcp_mod = original_mcp
+            main._TOOLS_FOR_API = None
+
+        names = {t["function"]["name"] for t in tools}
+        self.assertNotIn("COMPOSIO_MANAGE_SKILL", names)
+        self.assertIn("gmail_send", names)
+
+
 if __name__ == "__main__":
     unittest.main()

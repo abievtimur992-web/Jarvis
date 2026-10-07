@@ -195,6 +195,25 @@ _TOOLS_FOR_API = None
 
 _BUILTIN_TOOL_NAMES = {t["name"] for t in tools_mod.TOOL_DEFINITIONS}
 
+_INVALID_TOP_LEVEL_SCHEMA_KEYS = {"oneOf", "anyOf", "allOf", "enum", "const"}
+
+
+def _is_openai_compatible_schema(schema) -> bool:
+    """OpenAI-diń function-calling parameters schema-sı EŃ JOQARǴI
+    dárejede "type": "object" bolıwı kerek, hám oneOf/anyOf/allOf/enum/
+    const sıyaqlı JSON-Schema birikpelerin EŃ JOQARǴI dárejede qabıl
+    etpeydi. Sırtqı MCP serverler (Composio h.t.b.) keyde usınday schema
+    qaytaradı — aldın-ala súzbesek, OpenAI SOL BIR quraldıń qátesi ushın
+    BARLIQ sorawdı biykarlaydı (400), tipti dúz Jarvis quralları da
+    islemey qaladı."""
+    if not isinstance(schema, dict):
+        return False
+    if schema.get("type") != "object":
+        return False
+    if _INVALID_TOP_LEVEL_SCHEMA_KEYS & schema.keys():
+        return False
+    return True
+
 
 def _tools_for_api() -> list:
     """TOOL_DEFINITIONS (name/description/input_schema), OpenAI-diń "function
@@ -219,17 +238,24 @@ def _tools_for_api() -> list:
         ]
         if mcp_mod.is_configured():
             try:
+                skipped = []
                 for t in mcp_mod.list_tools():
+                    params = t.get("inputSchema") or {"type": "object", "properties": {}}
+                    if not _is_openai_compatible_schema(params):
+                        skipped.append(t["name"])
+                        continue
                     tools.append(
                         {
                             "type": "function",
                             "function": {
                                 "name": t["name"],
                                 "description": t.get("description", ""),
-                                "parameters": t.get("inputSchema") or {"type": "object", "properties": {}},
+                                "parameters": params,
                             },
                         }
                     )
+                if skipped:
+                    print(f"[MCP] {len(skipped)} qural OpenAI schema-ǵa sıymaǵanı ushın ótkerildi: {', '.join(skipped)}")
             except mcp_mod.MCPError as e:
                 print(f"[MCP] qurallardı alıp bolmadı: {e}")
         _TOOLS_FOR_API = tools
