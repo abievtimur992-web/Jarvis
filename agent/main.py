@@ -271,6 +271,10 @@ def call_openai(messages: list, system_prompt: str) -> dict:
             "max_completion_tokens": MAX_TOKENS,
             "messages": [{"role": "system", "content": system_prompt}] + messages,
             "tools": _tools_for_api(),
+            # gpt-6-luna standart "oylaw" (reasoning) rejiminde islep, bul
+            # tool (function calling) menen birge islemeydi — "none" etip
+            # óshirmesek, Chat Completions API 400 qátelik beredi.
+            "reasoning_effort": "none",
         }
     ).encode("utf-8")
     req = urllib.request.Request(
