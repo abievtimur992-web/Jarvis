@@ -268,7 +268,7 @@ def call_openai(messages: list, system_prompt: str) -> dict:
     body = json.dumps(
         {
             "model": MODEL,
-            "max_tokens": MAX_TOKENS,
+            "max_completion_tokens": MAX_TOKENS,
             "messages": [{"role": "system", "content": system_prompt}] + messages,
             "tools": _tools_for_api(),
         }
@@ -374,7 +374,7 @@ def call_model_simple(instruction: str) -> str:
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY joq")
     body = json.dumps(
-        {"model": MODEL, "max_tokens": 400, "messages": [{"role": "user", "content": instruction}]}
+        {"model": MODEL, "max_completion_tokens": 400, "messages": [{"role": "user", "content": instruction}]}
     ).encode("utf-8")
     req = urllib.request.Request(
         OPENAI_API_URL,
