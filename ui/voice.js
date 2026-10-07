@@ -30,6 +30,7 @@
     chunks: [],
     hasSpoken: false,
     listenStartedAt: null,
+    speakToken: 0,
   };
 
   function setReactor(mode, label) {
@@ -56,6 +57,10 @@
   }
 
   function stopSpeaking() {
+    // speakToken-ti arttırıw — ele "jolda" turǵan (fetch/blob kútip atırǵan)
+    // eski speak() shaqırıwların biykarlaydı, olar keyinirek óz nátiyjesine
+    // jetkende endi oynamaydı (tómendegi myToken tekseriwin qara).
+    state.speakToken++;
     if (state.currentAudio) {
       state.currentAudio.pause();
       state.currentAudio.currentTime = 0;
@@ -66,6 +71,12 @@
   async function speak(text) {
     if (state.muted) return;
     stopSpeaking();
+    // speak() tolıq ayaqlanbay turıp (fetch/blob kútip atırǵanda) ekinshi
+    // juwap ushın speak() qayta shaqırılsa, eki dawıs bir-birine aralasıp
+    // ketetuǵın edi (eki audio bir waqıtta oynaydı) — myToken sonı aldın
+    // aladı: eger bul fetch/blob ayaqlanǵansha speakToken basqa speak()
+    // shaqırıwınan ózgerip ketse, bul — ESKI shaqırıw, audio oynatpaymız.
+    const myToken = state.speakToken;
     setReactor("speaking", "Sóylep atırman");
     try {
       const res = await fetch("/api/speak", {
@@ -73,6 +84,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: text }),
       });
+      if (myToken !== state.speakToken) return; // jańa speak() ele kútip atırǵanda baslanǵan
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         const reason = body.error || ("HTTP " + res.status);
@@ -84,6 +96,7 @@
         return;
       }
       const blob = await res.blob();
+      if (myToken !== state.speakToken) return; // blob() de waqıt aladı, qayta tekseremiz
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       state.currentAudio = audio;
