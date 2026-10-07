@@ -39,6 +39,7 @@ sys.path.insert(0, str(AGENT_DIR))
 
 import data as data_mod  # noqa: E402
 import kaa  # noqa: E402
+import mcp_client as mcp_mod  # noqa: E402
 import tools as tools_mod  # noqa: E402
 import vault as vault_mod  # noqa: E402
 import voice as voice_mod  # noqa: E402
@@ -192,13 +193,20 @@ def _trim_history() -> None:
 _TOOLS_FOR_API = None
 
 
+_BUILTIN_TOOL_NAMES = {t["name"] for t in tools_mod.TOOL_DEFINITIONS}
+
+
 def _tools_for_api() -> list:
     """TOOL_DEFINITIONS (name/description/input_schema), OpenAI-diń "function
     calling" formatına ótkerilgen halda ({"type": "function", "function":
-    {...}}). tools.py-diń ózi ózgermeydi — bul tek formattı ótkeriw."""
+    {...}}), hám (sazlanǵan bolsa) sırtqı MCP serverdiń (mısalı Composio)
+    qurallari da qosılǵan halda. tools.py-diń ózi ózgermeydi — bul tek
+    formattı ótkeriw. MCP serverge jetpey qalsa (tarmaq joq, kilit durıs
+    emes h.t.b.), sonı ekranǵa jazıp, tek óziniń dúz quralları menen
+    dawam etedi — Jarvis sonıń ushın toqtamaydı."""
     global _TOOLS_FOR_API
     if _TOOLS_FOR_API is None:
-        _TOOLS_FOR_API = [
+        tools = [
             {
                 "type": "function",
                 "function": {
@@ -209,6 +217,22 @@ def _tools_for_api() -> list:
             }
             for t in tools_mod.TOOL_DEFINITIONS
         ]
+        if mcp_mod.is_configured():
+            try:
+                for t in mcp_mod.list_tools():
+                    tools.append(
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": t["name"],
+                                "description": t.get("description", ""),
+                                "parameters": t.get("inputSchema") or {"type": "object", "properties": {}},
+                            },
+                        }
+                    )
+            except mcp_mod.MCPError as e:
+                print(f"[MCP] qurallardı alıp bolmadı: {e}")
+        _TOOLS_FOR_API = tools
     return _TOOLS_FOR_API
 
 
@@ -288,7 +312,10 @@ def _run_conversation_turn_inner(user_text: str) -> dict:
             except json.JSONDecodeError:
                 tool_input = {}
             t_tool = time.perf_counter()
-            result = tools_mod.run_tool(name, tool_input, ctx)
+            if name in _BUILTIN_TOOL_NAMES:
+                result = tools_mod.run_tool(name, tool_input, ctx)
+            else:
+                result = mcp_mod.call_tool(name, tool_input)
             print(f"[waqit] tool {name}: {time.perf_counter() - t_tool:.2f}s")
             card = result.get("card") or {}
             last_card = card
