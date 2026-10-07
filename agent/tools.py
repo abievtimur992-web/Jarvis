@@ -1169,11 +1169,15 @@ TOOL_DEFINITIONS = [
     {
         "name": "telegram_chats",
         "description": (
-            "Timurdıń óz Telegram akkauntındaǵı BARLIQ chat/kanal/gruppa/jeke "
-            "sáwbet dizimin hám sanın (neshe kanal, neshe gruppa) qaytaradı. "
-            "'Neshe kanalım/gruppam bar', 'Telegramda ne bar' sıyaqlı soraw "
-            "berilgende usını shaqır (telegram_messages-ten parqı — bul BARLIǴIN "
-            "sanaydı, ol BIR nızıq chattan xabar oqıydı)."
+            "Timurdıń óz Telegram akkauntındaǵı (bot EMES — Timur telegram_login.py "
+            "arqalı óz telefon nomeri menen kirgen, TOLIQ akkaunt) BARLIQ chat/"
+            "kanal/gruppa/jeke sáwbet dizimin hám sanın (neshe kanal, neshe gruppa) "
+            "qaytaradı. 'Neshe kanalım/gruppam bar', 'Telegramda ne bar' sıyaqlı "
+            "soraw berilgende MINNETTI usını shaqır — HESH QASHAN bul sorawǵa "
+            "tooldı shaqırmay, ózinen ('bilmeymen', 'shekli kirisim bar' sıyaqlı) "
+            "juwap berme, sebebi akkaunt bot emes, TOLIQ qol jetimlilik bar "
+            "(telegram_messages-ten parqı — bul BARLIǴIN sanaydı, ol BIR nızıq "
+            "chattan xabar oqıydı)."
         ),
         "input_schema": {"type": "object", "properties": {}},
     },
