@@ -6,7 +6,12 @@ bolsa da, main import etiledi — bul jerdegi testler tek _CONVERSATION penen
 islesetuǵın taza funktsiyalardı tekseredi).
 """
 
+import tempfile
+import threading
+import time
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 import main
 
@@ -136,6 +141,87 @@ class IsOpenAICompatibleSchemaTestCase(unittest.TestCase):
         names = {t["function"]["name"] for t in tools}
         self.assertNotIn("COMPOSIO_MANAGE_SKILL", names)
         self.assertIn("gmail_send", names)
+
+
+class ConcurrentConversationTurnsTestCase(unittest.TestCase):
+    """Eki soraw bir waqıtta kelse (ThreadingHTTPServer-diń eki jipinde),
+    _CONVERSATION_LOCK bolmasa, eki jip bir-birewiniń tool-shaqırıw/tool-
+    nátiyje jubın bólip taslaytuǵın edi — OpenAI sonda "tool_calls ...
+    did not have response messages" dep 400 qátelik qaytaradı (nızıq
+    qollanıwda tabılǵan qátelik)."""
+
+    def setUp(self):
+        main._CONVERSATION.clear()
+
+    def tearDown(self):
+        main._CONVERSATION.clear()
+
+    def test_concurrent_turns_do_not_interleave_tool_call_pairs(self):
+        call_count = {"n": 0}
+        lock = threading.Lock()
+
+        def fake_call_openai(messages, system_prompt):
+            with lock:
+                call_count["n"] += 1
+                n = call_count["n"]
+            time.sleep(0.01)  # basqa jipke "aralaw" ushın waqıt beremiz
+            if n % 2 == 1:
+                return {
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": None,
+                                "tool_calls": [
+                                    {
+                                        "id": f"call-{n}",
+                                        "type": "function",
+                                        "function": {"name": "search_brain", "arguments": "{}"},
+                                    }
+                                ],
+                            }
+                        }
+                    ]
+                }
+            return {"choices": [{"message": {"role": "assistant", "content": "juwap"}}]}
+
+        def fake_run_tool(name, tool_input, ctx):
+            time.sleep(0.01)
+            return {"spoken": "taptım", "card": {"tool": name}}
+
+        errors = []
+
+        def worker(text):
+            try:
+                main.run_conversation_turn(text)
+            except Exception as e:  # noqa: BLE001
+                errors.append(e)
+
+        memory_dir = Path(tempfile.mkdtemp())
+        try:
+            with patch("main.call_openai", side_effect=fake_call_openai), patch.object(
+                main.tools_mod, "run_tool", side_effect=fake_run_tool
+            ), patch("main.get_vault", return_value=None), patch(
+                "main._load_profile", return_value={}
+            ), patch.object(main.data_mod, "memory_dir", return_value=memory_dir):
+                t1 = threading.Thread(target=worker, args=("1-soraw",))
+                t2 = threading.Thread(target=worker, args=("2-soraw",))
+                t1.start()
+                t2.start()
+                t1.join()
+                t2.join()
+        finally:
+            import shutil
+
+            shutil.rmtree(memory_dir, ignore_errors=True)
+
+        self.assertEqual(errors, [])
+        for i, msg in enumerate(main._CONVERSATION):
+            if msg.get("role") == "assistant" and msg.get("tool_calls"):
+                ids = {tc["id"] for tc in msg["tool_calls"]}
+                following = main._CONVERSATION[i + 1 : i + 1 + len(ids)]
+                following_ids = {m.get("tool_call_id") for m in following if m.get("role") == "tool"}
+                self.assertEqual(ids, following_ids)
 
 
 if __name__ == "__main__":

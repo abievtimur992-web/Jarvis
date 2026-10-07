@@ -16,6 +16,7 @@ import json
 import mimetypes
 import os
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -124,6 +125,14 @@ def build_graph_json(v: vault_mod.Vault) -> dict:
 # ---------------------------------------------------------------------------
 
 _CONVERSATION: list = []  # [{"role": "user"/"assistant", "content": ...}, ...]
+# Server ThreadingHTTPServer bolǵanı ushın hár HTTP soraw óz jipinde (thread)
+# isleydi. Eki soraw bir waqıtta kelse (mısalı, iye eki ret tez-tez soraw
+# jiberse), bul qulip bolmasa, eki jip bir waqıtta _CONVERSATION-di
+# ózgertip, bir-birewiniń tool-shaqırıw/tool-nátiyje jubın bólip taslaydı —
+# sonda OpenAI "tool_calls... did not have response messages" dep 400
+# qátelik qaytaradı. Bul qulip sáwbetlerdi BIR-BIRINEN KEYIN (nawbat
+# penen) isleytuǵın etedi.
+_CONVERSATION_LOCK = threading.Lock()
 
 NETWORK_RETRIES = 3  # WinError 10054 sıyaqlı ótkinshi tarmaq úzilisleri ushın
 
@@ -299,12 +308,13 @@ def run_conversation_turn(user_text: str) -> dict:
     qalǵan tool-shaqırıw/tool-nátiyje jubı _CONVERSATION-da MÁNGI qalıp,
     KELESI hár bir gezekte de sonı OpenAI-ge jiberip, hámishe qátelik
     qaytara beredi — server qayta iske túsirilgenshe."""
-    turn_start_len = len(_CONVERSATION)
-    try:
-        return _run_conversation_turn_inner(user_text)
-    except Exception:
-        del _CONVERSATION[turn_start_len:]
-        raise
+    with _CONVERSATION_LOCK:
+        turn_start_len = len(_CONVERSATION)
+        try:
+            return _run_conversation_turn_inner(user_text)
+        except Exception:
+            del _CONVERSATION[turn_start_len:]
+            raise
 
 
 def _run_conversation_turn_inner(user_text: str) -> dict:
@@ -542,7 +552,8 @@ class JarvisHandler(BaseHTTPRequestHandler):
             except Exception as e:  # noqa: BLE001
                 self._send_json({"model_available": True, "error": str(e)}, status=502)
         elif route == "/api/reset":
-            _CONVERSATION.clear()
+            with _CONVERSATION_LOCK:
+                _CONVERSATION.clear()
             self._send_json({"ok": True})
         elif route == "/api/reload":
             v = reload_vault()
